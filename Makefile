@@ -21,7 +21,7 @@ dev:              ## Backend (reload) on :8000 and Vite on :5173
 	$(MAKE) -j2 backend frontend
 
 backend:
-	cd backend && ../$(PY) -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+	cd backend && ../$(PY) -m uvicorn --factory app.main:create_app --reload --host 127.0.0.1 --port 8000
 
 frontend:
 	cd frontend && npm run dev
@@ -30,7 +30,7 @@ build:            ## Build the frontend into frontend/dist (served by the backen
 	cd frontend && npm run build
 
 run: build        ## Single process: http://127.0.0.1:8000
-	cd backend && ../$(PY) -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+	cd backend && ../$(PY) -m uvicorn --factory app.main:create_app --host 127.0.0.1 --port 8000
 
 test:             ## Backend tests, then frontend type-check + lint
 	cd backend && ../$(PY) -m pytest

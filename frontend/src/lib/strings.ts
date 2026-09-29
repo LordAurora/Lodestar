@@ -127,7 +127,7 @@ export const strings = {
     you: "You",
     assistant: "Lodestar",
     thinking: "Searching the code…",
-    generating: "Generating…",
+    generating: "Generating answer… (the first answer after a restart can take a minute)",
     copy: "Copy answer",
     copied: "Copied",
     regenerate: "Regenerate",

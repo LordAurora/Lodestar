@@ -123,6 +123,19 @@ export function ChatPage({ repo }: { repo: Repo }) {
         return [...base, user, draft];
       });
 
+      // Tokens can arrive faster than the screen refreshes. Collect them and
+      // apply at most once per animation frame, so long answers stay smooth.
+      let pending = "";
+      let frame = 0;
+      const flush = () => {
+        cancelAnimationFrame(frame);
+        frame = 0;
+        if (!pending) return;
+        const text = pending;
+        pending = "";
+        updateLast((m) => ({ content: m.content + text }));
+      };
+
       try {
         await streamChat(
           repo.id,
@@ -142,15 +155,18 @@ export function ChatPage({ repo }: { repo: Repo }) {
                 });
                 break;
               case "token":
-                updateLast((m) => ({ content: m.content + e.data.text }));
+                pending += e.data.text;
+                frame ||= requestAnimationFrame(flush);
                 break;
               case "done":
+                flush();
                 updateLast({ content: e.data.answer, citations: e.data.citations, status: "done" });
                 break;
               case "no_answer":
                 updateLast({ status: "no_answer", suggestions: e.data.suggestions });
                 break;
               case "error":
+                flush();
                 updateLast({ status: "error", error: e.data.message });
                 break;
             }
@@ -158,6 +174,7 @@ export function ChatPage({ repo }: { repo: Repo }) {
           controller.signal,
         );
         // Stream ended without a final event (e.g. the user pressed Stop).
+        flush();
         updateLast((m) =>
           m.status === "streaming" || m.status === "searching" ? { status: "done" } : {},
         );

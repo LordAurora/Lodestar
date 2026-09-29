@@ -230,6 +230,7 @@ class FoundryLLM:
 
     def _model_id(self, alias: str) -> str:
         # Chat requests must name the concrete model id (e.g. "...-generic-cpu:4").
+        # ensure_model also loads the model if it was unloaded in the meantime.
         return self._foundry.ensure_model(alias, allow_download=False)
 
     async def stream_chat(self, messages: list[dict], model: str) -> AsyncIterator[str]:

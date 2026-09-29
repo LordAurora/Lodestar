@@ -167,3 +167,15 @@ def test_sliding_window_ignores_blank_files():
 def test_embedding_text_has_path_and_symbol_header():
     chunk = Chunk("pkg/auth.py", "python", "Auth.login", "method", 1, 2, "def login(): ...")
     assert chunk.embedding_text().startswith("# pkg/auth.py :: Auth.login\n")
+
+
+def test_missing_grammar_falls_back_to_line_windows(monkeypatch):
+    """Offline without a cached grammar, tree-sitter cannot load: chunk by lines instead."""
+    import tree_sitter_language_pack
+
+    def unavailable(language):
+        raise RuntimeError("grammar not downloaded")
+
+    monkeypatch.setattr(tree_sitter_language_pack, "get_parser", unavailable)
+    chunks = chunk_file("app.py", "def f():\n    return 1\n")
+    assert [(c.symbol_kind, c.start_line, c.end_line) for c in chunks] == [("block", 1, 2)]

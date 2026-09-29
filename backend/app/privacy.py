@@ -24,6 +24,7 @@ class NetworkGuard:
         self.block = True
         self.blocked: list[str] = []
         self.allowed_local = 0
+        self._installed = False
         self._lock = threading.Lock()
 
     @staticmethod
@@ -60,7 +61,7 @@ class NetworkGuard:
     def install(self, block: bool = True) -> None:
         """Audit hooks cannot be removed, so we install once and toggle ``enabled``."""
         self.block = block
-        if not getattr(self, "_installed", False):
+        if not self._installed:
             sys.addaudithook(self._hook)
             self._installed = True
         self.enabled = True

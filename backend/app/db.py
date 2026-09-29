@@ -111,6 +111,7 @@ class Database:
         self.repos_dir = data_dir / "repos"
         self.repos_dir.mkdir(parents=True, exist_ok=True)
         self.app_db_path = data_dir / "app.db"
+        self._initialised: set[str] = set()  # repo ids whose schema already exists
         with self.app() as conn:
             conn.executescript(APP_SCHEMA)
 
@@ -130,7 +131,9 @@ class Database:
     def repo(self, repo_id: str) -> Iterator[sqlite3.Connection]:
         conn = connect(self.repo_db_path(repo_id))
         try:
-            conn.executescript(REPO_SCHEMA)
+            if repo_id not in self._initialised:
+                conn.executescript(REPO_SCHEMA)
+                self._initialised.add(repo_id)
             with conn:
                 yield conn
         finally:
@@ -174,6 +177,7 @@ class Database:
     def delete_repo(self, repo_id: str) -> bool:
         with self.app() as conn:
             deleted = conn.execute("DELETE FROM repos WHERE id = ?", (repo_id,)).rowcount
+        self._initialised.discard(repo_id)
         for suffix in ("", "-wal", "-shm"):
             Path(str(self.repo_db_path(repo_id)) + suffix).unlink(missing_ok=True)
         return deleted > 0
@@ -194,6 +198,11 @@ class Database:
                 conv,
             )
         return conv
+
+    def conversation_exists(self, repo_id: str, conv_id: str) -> bool:
+        with self.repo(repo_id) as conn:
+            row = conn.execute("SELECT 1 FROM conversations WHERE id = ?", (conv_id,)).fetchone()
+            return row is not None
 
     def rename_conversation(self, repo_id: str, conv_id: str, title: str) -> bool:
         with self.repo(repo_id) as conn:

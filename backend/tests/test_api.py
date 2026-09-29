@@ -119,3 +119,13 @@ def test_health_reports_foundry_problems_without_failing(client):
     assert body["status"] == "ok"
     assert body["foundry"]["running"] is False
     assert body["privacy"]["local_only"] is True
+
+
+def test_chat_with_unknown_conversation_is_404(client, sample_repo):
+    repo = client.post("/api/repos", json={"path": str(sample_repo)}).json()
+    index(client, repo["id"])
+    res = client.post(
+        f"/api/repos/{repo['id']}/chat",
+        json={"question": "verify token", "conversation_id": "does-not-exist"},
+    )
+    assert res.status_code == 404

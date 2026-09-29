@@ -20,13 +20,13 @@ switch ($Target) {
     "dev" {
         # Backend in a new window, Vite in this one.
         Start-Process powershell -ArgumentList "-NoExit", "-Command",
-            "cd '$Root\backend'; & '$Py' -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000"
+            "cd '$Root\backend'; & '$Py' -m uvicorn --factory app.main:create_app --reload --host 127.0.0.1 --port 8000"
         In "frontend" { npm run dev }
     }
     "build" { In "frontend" { npm run build } }
     "run" {
         In "frontend" { npm run build }
-        In "backend" { & $Py -m uvicorn app.main:app --host 127.0.0.1 --port 8000 }
+        In "backend" { & $Py -m uvicorn --factory app.main:create_app --host 127.0.0.1 --port 8000 }
     }
     "test" {
         In "backend" { & $Py -m pytest }

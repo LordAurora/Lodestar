@@ -1,4 +1,4 @@
-import { AlertCircle, Check, Copy, Info, RotateCcw, Search } from "lucide-react";
+import { AlertCircle, Check, Copy, Info, Loader2, RotateCcw, Search } from "lucide-react";
 import { useState } from "react";
 import { Logo } from "@/components/Logo";
 import { Markdown } from "@/components/Markdown";
@@ -116,14 +116,17 @@ function AssistantBody({
         </div>
       ) : (
         <div
-          className={message.status === "streaming" ? "streaming-caret" : undefined}
+          className={message.status === "streaming" && text ? "streaming-caret" : undefined}
           aria-live={message.status === "streaming" ? "polite" : undefined}
           aria-busy={message.status === "streaming"}
         >
           {text ? (
             <Markdown text={text} sources={message.sources} onCite={openCitation} />
           ) : (
-            <span className="sr-only">{s.generating}</span>
+            <span className="flex items-center gap-2 text-[13px] text-muted">
+              <Loader2 className="size-4 animate-spin" />
+              {s.generating}
+            </span>
           )}
         </div>
       )}

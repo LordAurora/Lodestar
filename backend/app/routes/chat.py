@@ -78,6 +78,8 @@ async def chat(repo_id: str, body: ChatIn, state: AppState = Depends(get_state))
     db = state.db
     if body.conversation_id:
         conv_id = body.conversation_id
+        if not db.conversation_exists(repo_id, conv_id):
+            raise HTTPException(404, "Conversation not found. It may have been deleted.")
         if body.regenerate:
             db.delete_last_exchange(repo_id, conv_id)
     else:
