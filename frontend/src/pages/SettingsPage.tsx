@@ -1,6 +1,17 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Download, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  Cpu,
+  Palette,
+  Shield,
+  SlidersHorizontal,
+  Download,
+  Loader2,
+  ShieldAlert,
+  ShieldCheck,
+} from "lucide-react";
 import { useState } from "react";
+import { ThemeSegmented } from "@/components/ThemeToggle";
 import { Badge, Dot } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -84,7 +95,7 @@ function ModelCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{s.model}</CardTitle>
+        <CardTitle icon={Cpu}>{s.model}</CardTitle>
         <CardDescription>{s.modelHelp}</CardDescription>
       </CardHeader>
       <CardContent className="divide-y divide-border">
@@ -151,7 +162,7 @@ function RetrievalCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{s.retrieval}</CardTitle>
+        <CardTitle icon={SlidersHorizontal}>{s.retrieval}</CardTitle>
         <CardDescription>{s.retrievalHelp}</CardDescription>
       </CardHeader>
       <CardContent className="divide-y divide-border">
@@ -201,7 +212,7 @@ function PrivacyCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{s.privacy}</CardTitle>
+        <CardTitle icon={Shield}>{s.privacy}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div
@@ -272,6 +283,15 @@ export function SettingsPage() {
         ) : (
           <Skeleton className="h-64" />
         )}
+        <Card>
+          <CardHeader>
+            <CardTitle icon={Palette}>{s.appearance}</CardTitle>
+            <CardDescription>{s.appearanceHelp}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ThemeSegmented size="md" />
+          </CardContent>
+        </Card>
         <PrivacyCard />
       </div>
     </div>

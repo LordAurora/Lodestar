@@ -32,7 +32,7 @@ export function Slider({
       </SliderPrimitive.Track>
       <SliderPrimitive.Thumb
         aria-label={label}
-        className="block size-4 rounded-full border-2 border-accent bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        className="block size-4 rounded-full border-2 border-accent bg-background focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-foreground/15"
       />
     </SliderPrimitive.Root>
   );

@@ -37,15 +37,25 @@ export const strings = {
     removeRepoConfirm: (name: string) =>
       `Remove "${name}" and delete its index? Your files are not touched.`,
     switchRepo: "Switch repository",
+    workspace: "Workspace",
+    chat: "Chat",
+    runtime: "Runtime",
+    running: "Foundry Local running",
+    stopped: "Foundry Local offline",
+    starting: "Starting Foundry Local…",
   },
 
   theme: {
+    label: "Theme",
     toggle: "Toggle theme",
     light: "Light",
     dark: "Dark",
+    system: "System",
   },
 
   topbar: {
+    chat: "Chat",
+    settings: "Settings",
     reindex: "Re-index",
     indexing: "Indexing…",
     notIndexed: "Not indexed",
@@ -54,6 +64,7 @@ export const strings = {
   },
 
   onboarding: {
+    eyebrow: "100% local · Powered by Foundry Local",
     title: "Ask questions about your code",
     subtitle:
       "Lodestar indexes a local repository and answers questions with citations. Everything runs on this machine.",
@@ -75,6 +86,11 @@ export const strings = {
     starting: "Starting…",
     previous: "Previously indexed",
     tryExample: "Tip: try the sample repo in examples/bookshelf.",
+    features: [
+      { title: "Code-aware", body: "Chunks follow functions, methods and classes." },
+      { title: "Hybrid search", body: "Semantic vectors plus BM25 keyword matching." },
+      { title: "Private by design", body: "No cloud APIs, no telemetry, no CDNs." },
+    ],
   },
 
   indexing: {
@@ -96,15 +112,18 @@ export const strings = {
     emptyTitle: (repo: string) => `Ask anything about ${repo}`,
     emptySubtitle: "Answers are grounded in the indexed code and cite their sources.",
     suggestions: [
-      "How does authentication work in this project?",
-      "Where is the database schema defined?",
-      "What are the main entry points of the application?",
+      { title: "Authentication", question: "How does authentication work in this project?" },
+      { title: "Data model", question: "Where is the database schema defined?" },
+      { title: "Architecture", question: "What are the main entry points of the application?" },
     ],
     placeholder: "Ask a question about the code…",
     send: "Send",
     stop: "Stop",
     hint: "Answers are generated locally",
     shortcuts: "Enter to send · Shift+Enter for a new line · Ctrl+K to focus",
+    sendHint: "send",
+    newLineHint: "new line",
+    focusHint: "focus",
     you: "You",
     assistant: "Lodestar",
     thinking: "Searching the code…",
@@ -139,7 +158,9 @@ export const strings = {
 
   settings: {
     title: "Settings",
-    subtitle: "Configure the local model and retrieval.",
+    subtitle: "Configure the local model, retrieval and appearance.",
+    appearance: "Appearance",
+    appearanceHelp: "Choose a light or dark interface, or follow your system setting.",
     back: "Back to chat",
     model: "Model",
     modelHelp: "Chat models run on this device through Foundry Local.",
