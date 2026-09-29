@@ -1,0 +1,189 @@
+// Every user-facing string lives here so the UI can be translated later.
+// Functions are used where a string needs values interpolated.
+
+export const strings = {
+  appName: "Lodestar",
+  tagline: "Local code-base assistant",
+
+  common: {
+    cancel: "Cancel",
+    save: "Save",
+    skipToContent: "Skip to content",
+    moreActions: (title: string) => `${title}: more actions`,
+    copyCode: "Copy code",
+    copied: "Copied",
+    source: (n: number) => `Source ${n}`,
+    openSource: (n: number, path?: string) => `Open source ${n}${path ? `: ${path}` : ""}`,
+    repoCount: (n: number) => `${n} ${n === 1 ? "repository" : "repositories"}`,
+    chunksAgo: (chunks: number, when: string) => `${chunks.toLocaleString()} chunks · ${when}`,
+    reindexed: (name: string, changed: number, removed: number) =>
+      `${name} re-indexed · ${changed} changed, ${removed} removed`,
+    notDownloadedSuffix: " · not downloaded",
+  },
+
+  sidebar: {
+    repositories: "Repository",
+    addRepository: "Add repository",
+    conversations: "Conversations",
+    newChat: "New chat",
+    noConversations: "No conversations yet.",
+    settings: "Settings",
+    collapse: "Collapse sidebar",
+    expand: "Expand sidebar",
+    rename: "Rename",
+    delete: "Delete",
+    deleteConfirm: "Delete this conversation?",
+    removeRepo: "Remove repository",
+    removeRepoConfirm: (name: string) =>
+      `Remove "${name}" and delete its index? Your files are not touched.`,
+    switchRepo: "Switch repository",
+  },
+
+  theme: {
+    toggle: "Toggle theme",
+    light: "Light",
+    dark: "Dark",
+  },
+
+  topbar: {
+    reindex: "Re-index",
+    indexing: "Indexing…",
+    notIndexed: "Not indexed",
+    indexed: (chunks: number, when: string) =>
+      `Indexed · ${chunks.toLocaleString()} chunks · ${when}`,
+  },
+
+  onboarding: {
+    title: "Ask questions about your code",
+    subtitle:
+      "Lodestar indexes a local repository and answers questions with citations. Everything runs on this machine.",
+    pathLabel: "Repository folder",
+    pathPlaceholder: "C:\\Users\\you\\projects\\my-app  or  /home/you/my-app",
+    add: "Add repository",
+    adding: "Adding…",
+    steps: [
+      { title: "Add a repository", body: "Point Lodestar at a folder on this computer." },
+      { title: "Index it", body: "Code is split into functions and classes, then embedded." },
+      { title: "Ask", body: "Get grounded answers with file and line references." },
+    ],
+    status: "Local runtime",
+    foundry: "Foundry Local",
+    chatModel: "Chat model",
+    embeddings: "Embeddings",
+    ready: "Ready",
+    notReady: "Not ready",
+    starting: "Starting…",
+    previous: "Previously indexed",
+    tryExample: "Tip: try the sample repo in examples/bookshelf.",
+  },
+
+  indexing: {
+    title: "Indexing repository",
+    scanning: "Scanning files",
+    embedding: "Embedding chunks",
+    done: "Indexing complete",
+    failed: "Indexing failed",
+    files: "Files scanned",
+    changed: "Changed",
+    chunks: "Chunks created",
+    embedded: "Chunks embedded",
+    elapsed: "Elapsed",
+    recent: "Recent files",
+    startChatting: "Start asking questions",
+  },
+
+  chat: {
+    emptyTitle: (repo: string) => `Ask anything about ${repo}`,
+    emptySubtitle: "Answers are grounded in the indexed code and cite their sources.",
+    suggestions: [
+      "How does authentication work in this project?",
+      "Where is the database schema defined?",
+      "What are the main entry points of the application?",
+    ],
+    placeholder: "Ask a question about the code…",
+    send: "Send",
+    stop: "Stop",
+    hint: "Answers are generated locally",
+    shortcuts: "Enter to send · Shift+Enter for a new line · Ctrl+K to focus",
+    you: "You",
+    assistant: "Lodestar",
+    thinking: "Searching the code…",
+    generating: "Generating…",
+    copy: "Copy answer",
+    copied: "Copied",
+    regenerate: "Regenerate",
+    sources: (n: number) => `Sources (${n})`,
+    retrieved: (n: number) => `Retrieved context (${n})`,
+    rewritten: (q: string) => `Searched for: “${q}”`,
+    errorTitle: "Could not answer",
+    retry: "Try again",
+  },
+
+  noAnswer: {
+    title: "Nothing relevant found",
+    body: "I couldn't find anything relevant to this question in the indexed code. Try naming a file, function or feature, or lower the relevance threshold in Settings.",
+    closest: "Closest matches",
+    score: (s: number) => `similarity ${s.toFixed(2)}`,
+  },
+
+  source: {
+    title: "Source",
+    lines: (a: number, b: number) => `Lines ${a}–${b}`,
+    score: "Score",
+    similarity: "Similarity",
+    stale: "The file changed since it was indexed. Showing the indexed version.",
+    close: "Close",
+    copyPath: "Copy path",
+    loading: "Loading source…",
+  },
+
+  settings: {
+    title: "Settings",
+    subtitle: "Configure the local model and retrieval.",
+    back: "Back to chat",
+    model: "Model",
+    modelHelp: "Chat models run on this device through Foundry Local.",
+    chatModel: "Chat model",
+    download: "Download",
+    load: "Load",
+    loaded: "Loaded",
+    cached: "Downloaded",
+    notDownloaded: "Not downloaded",
+    downloading: (pct: number) => `Downloading ${Math.round(pct)}%`,
+    loading: "Loading…",
+    embeddingModel: "Embedding model",
+    embeddingHelp: "Set with LODESTAR_EMBEDDING_MODEL. Changing it re-indexes repositories.",
+    retrieval: "Retrieval",
+    retrievalHelp: "How many snippets are sent to the model and when Lodestar refuses to answer.",
+    topK: "Snippets per answer (top-K)",
+    threshold: "Relevance threshold",
+    thresholdHelp:
+      "If the best match is less similar than this, Lodestar says it does not know instead of asking the model.",
+    hybrid: "Hybrid search",
+    hybridHelp: "Combine semantic search with keyword (BM25) search.",
+    privacy: "About & privacy",
+    localOnly: "Local only",
+    localOnlyOn: "No external network connections",
+    localOnlyOff: "External connection attempts detected",
+    privacyBody:
+      "Your code, questions and embeddings never leave this machine. The backend blocks every outbound connection that is not to localhost, and the UI loads no fonts, icons or scripts from the internet.",
+    endpoint: "Foundry Local endpoint",
+    blocked: "Blocked connection attempts",
+    version: "Version",
+    saved: "Settings saved",
+    foundryDown: "Foundry Local is not running",
+  },
+
+  errors: {
+    generic: "Something went wrong.",
+    network: "Cannot reach the Lodestar backend. Is it running on port 8000?",
+  },
+
+  time: {
+    justNow: "just now",
+    minutes: (n: number) => `${n} min ago`,
+    hours: (n: number) => `${n} h ago`,
+    days: (n: number) => `${n} d ago`,
+    never: "never",
+  },
+} as const;

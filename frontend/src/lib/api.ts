@@ -1,0 +1,258 @@
+// Typed client for the Lodestar backend. Everything goes to the same origin
+// (/api), which Vite proxies to FastAPI in development.
+
+export interface Repo {
+  id: string;
+  path: string;
+  name: string;
+  created_at: number;
+  last_indexed_at: number | null;
+  file_count: number;
+  chunk_count: number;
+  embedding_model: string | null;
+  indexing: boolean;
+  last_error: string | null;
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface Source {
+  id: number;
+  chunk_id: string;
+  file_path: string;
+  language: string;
+  symbol_name: string | null;
+  symbol_kind: string;
+  start_line: number;
+  end_line: number;
+  content: string;
+  score: number;
+  cosine: number;
+}
+
+export interface Citation {
+  n: number;
+  chunk_id: string;
+}
+
+export interface MessageMeta {
+  sources?: Source[];
+  citations?: Citation[];
+  query?: string;
+  no_answer?: boolean;
+  suggestions?: Source[];
+}
+
+export interface Message {
+  id: number;
+  conversation_id: string;
+  role: "user" | "assistant";
+  content: string;
+  meta: MessageMeta;
+  created_at: number;
+}
+
+export interface Health {
+  status: string;
+  foundry: { running: boolean; endpoint: string | null; error: string | null };
+  chat_model: { alias: string; ready: boolean };
+  embedder: { name: string | null; loaded: boolean; error: string | null };
+  privacy: {
+    guard_enabled: boolean;
+    blocking: boolean;
+    external_attempts: number;
+    last_blocked: string[];
+    local_connections: number;
+    local_only: boolean;
+  };
+}
+
+export interface ModelJob {
+  alias: string;
+  state: "downloading" | "loading" | "ready" | "error";
+  progress: number;
+  error: string | null;
+}
+
+export interface ModelInfo {
+  alias: string;
+  id: string;
+  display_name: string;
+  size_mb: number | null;
+  cached: boolean;
+  loaded: boolean;
+  job: ModelJob | null;
+}
+
+export interface Settings {
+  chat_model: string;
+  top_k: number;
+  relevance_threshold: number;
+  hybrid_search: boolean;
+  embedding_model: string;
+}
+
+export interface IndexProgress {
+  status: "pending" | "scanning" | "embedding" | "done" | "error";
+  files_total: number;
+  files_scanned: number;
+  files_changed: number;
+  files_deleted: number;
+  chunks_created: number;
+  chunks_embedded: number;
+  elapsed: number;
+  error: string | null;
+  recent_files: string[];
+  repo?: Repo;
+}
+
+export interface ChunkPreview {
+  chunk: Source & { content: string };
+  language: string;
+  first_line: number;
+  lines: string[];
+  stale: boolean;
+  absolute_path: string;
+}
+
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, {
+      ...init,
+      headers: { "Content-Type": "application/json", ...init.headers },
+    });
+  } catch {
+    throw new ApiError(0, "Cannot reach the Lodestar backend. Is it running on port 8000?");
+  }
+  if (res.status === 204) return undefined as T;
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = typeof body.detail === "string" ? body.detail : res.statusText;
+    throw new ApiError(res.status, detail);
+  }
+  return body as T;
+}
+
+const json = (body: unknown) => JSON.stringify(body);
+
+export const api = {
+  health: () => request<Health>("/health"),
+  models: () => request<{ selected: string; models: ModelInfo[] }>("/models"),
+  loadModel: (alias: string) =>
+    request<ModelJob>(`/models/${encodeURIComponent(alias)}/load`, { method: "POST" }),
+  settings: () => request<Settings>("/settings"),
+  saveSettings: (changes: Partial<Settings>) =>
+    request<Settings>("/settings", { method: "PUT", body: json(changes) }),
+
+  repos: () => request<Repo[]>("/repos"),
+  addRepo: (path: string) => request<Repo>("/repos", { method: "POST", body: json({ path }) }),
+  deleteRepo: (id: string) => request<void>(`/repos/${id}`, { method: "DELETE" }),
+  startIndex: (id: string) => request<{ job_id: string }>(`/repos/${id}/index`, { method: "POST" }),
+
+  conversations: (repoId: string) => request<Conversation[]>(`/repos/${repoId}/conversations`),
+  messages: (repoId: string, convId: string) =>
+    request<Message[]>(`/repos/${repoId}/conversations/${convId}/messages`),
+  renameConversation: (repoId: string, convId: string, title: string) =>
+    request<Conversation>(`/repos/${repoId}/conversations/${convId}`, {
+      method: "PATCH",
+      body: json({ title }),
+    }),
+  deleteConversation: (repoId: string, convId: string) =>
+    request<void>(`/repos/${repoId}/conversations/${convId}`, { method: "DELETE" }),
+
+  chunk: (chunkId: string) => request<ChunkPreview>(`/chunks/${chunkId}`),
+};
+
+/** Follow indexing progress with the browser's EventSource (GET SSE). */
+export function watchIndex(
+  repoId: string,
+  onEvent: (event: "progress" | "done" | "error" | "idle", data: IndexProgress) => void,
+): () => void {
+  const source = new EventSource(`/api/repos/${repoId}/index/stream`);
+  for (const kind of ["progress", "done", "error", "idle"] as const) {
+    source.addEventListener(kind, (e) => {
+      onEvent(kind, JSON.parse((e as MessageEvent).data));
+      if (kind !== "progress") source.close();
+    });
+  }
+  source.onerror = () => source.close();
+  return () => source.close();
+}
+
+export type ChatEvent =
+  | {
+      event: "retrieval";
+      data: { query: string; chunks: Source[]; best_cosine: number; conversation_id: string };
+    }
+  | { event: "token"; data: { text: string } }
+  | { event: "done"; data: { answer: string; citations: Citation[]; message_id: number } }
+  | { event: "no_answer"; data: { message: string; best_cosine: number; suggestions: Source[] } }
+  | { event: "error"; data: { message: string } };
+
+/**
+ * POST a question and read the Server-Sent Events stream it returns.
+ * EventSource only supports GET, so we parse the stream by hand: events are
+ * separated by a blank line, and each has `event:` and `data:` fields.
+ */
+export async function streamChat(
+  repoId: string,
+  body: { question: string; conversation_id?: string | null; regenerate?: boolean },
+  onEvent: (e: ChatEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(`/api/repos/${repoId}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+      body: json(body),
+      signal,
+    });
+  } catch (err) {
+    if ((err as Error).name === "AbortError") return;
+    throw new ApiError(0, "Cannot reach the Lodestar backend. Is it running on port 8000?");
+  }
+  if (!res.ok || !res.body) {
+    const detail = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, detail.detail ?? res.statusText);
+  }
+
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += value.replace(/\r\n/g, "\n");
+      let boundary: number;
+      while ((boundary = buffer.indexOf("\n\n")) !== -1) {
+        const block = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+        let event = "message";
+        const data: string[] = [];
+        for (const line of block.split("\n")) {
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          else if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
+        }
+        if (data.length) onEvent({ event, data: JSON.parse(data.join("\n")) } as ChatEvent);
+      }
+    }
+  } catch (err) {
+    if ((err as Error).name !== "AbortError") throw err;
+  }
+}
