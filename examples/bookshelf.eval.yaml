@@ -1,0 +1,28 @@
+# Retrieval evaluation set for examples/bookshelf (used by scripts/eval.py).
+# Each question lists the file(s) a good retriever should return.
+repo: bookshelf
+questions:
+  - question: How are passwords hashed?
+    expected: [bookshelf/auth.py]
+  - question: How does authentication work?
+    expected: [bookshelf/auth.py, bookshelf/api.py]
+  - question: Where is the session token verified?
+    expected: [bookshelf/auth.py]
+  - question: How many books can a user borrow at the same time?
+    expected: [bookshelf/loans.py, bookshelf/config.py]
+  - question: How is the late fee calculated?
+    expected: [bookshelf/loans.py]
+  - question: Who sends reminder emails for overdue books?
+    expected: [worker/reminders.go]
+  - question: How does the web client attach the auth token to requests?
+    expected: [web/src/api.ts]
+  - question: Where is the database schema defined?
+    expected: [bookshelf/storage.py]
+  - question: What happens when a book is returned?
+    expected: [bookshelf/loans.py, bookshelf/storage.py]
+  - question: How does search debounce work in the browser?
+    expected: [web/src/debounce.js]
+  - question: Where is find_by_email implemented?
+    expected: [bookshelf/storage.py]
+  - question: How long is the loan period?
+    expected: [bookshelf/config.py, bookshelf/loans.py]
