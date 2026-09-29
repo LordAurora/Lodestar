@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Lodestar data (indexes, settings, downloaded models)
+backend/data/
+
+# Frontend
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Env / editors
+.env
+.vscode/
+.idea/
+.DS_Store
