@@ -70,6 +70,11 @@ class AppState:
             self._retriever = Retriever(self.db, self.embedder)
         return self._retriever
 
+    def invalidate_vectors(self, repo_id: str) -> None:
+        """Forget a repo's cached embedding matrix (after re-indexing or deletion)."""
+        if self._retriever is not None:
+            self._retriever.cache.invalidate(repo_id)
+
     @property
     def rag(self) -> RagPipeline:
         return RagPipeline(self.retriever, self.llm)

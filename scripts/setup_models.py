@@ -59,8 +59,9 @@ def download_foundry(models: list[str]) -> None:
 
 
 def download_fastembed() -> None:
-    from app.embeddings import FASTEMBED_MODELS
     from fastembed import TextEmbedding
+
+    from app.embeddings import FASTEMBED_MODELS
 
     cache = get_config().models_dir
     for name in FASTEMBED_MODELS:

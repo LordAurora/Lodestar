@@ -46,6 +46,9 @@ target-version = "py311"
 select = ["E", "F", "I", "B", "UP", "SIM"]
 ignore = ["B008"]  # FastAPI's `Depends(...)` default is the documented idiom
 
+[tool.ruff.lint.isort]
+known-first-party = ["app", "tests"]
+
 [tool.ruff.lint.per-file-ignores]
 "app/prompts.py" = ["E501"]  # prompts read better unwrapped
 "tests/*" = ["E501"]

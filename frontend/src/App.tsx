@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { IndexingCard } from "@/components/IndexingCard";
 import { Onboarding } from "@/components/Onboarding";
 import { Sidebar } from "@/components/Sidebar";
@@ -12,7 +12,11 @@ import { useAppState } from "@/lib/app-state";
 import { keys, useIndexProgress, useRepos } from "@/lib/queries";
 import { strings } from "@/lib/strings";
 import { ChatPage } from "@/pages/ChatPage";
-import { SettingsPage } from "@/pages/SettingsPage";
+
+// The Settings page is not needed on first paint: load it on demand.
+const SettingsPage = lazy(() =>
+  import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })),
+);
 
 /** The main area for one repository: top bar plus indexing progress or chat. */
 function RepoWorkspace({ repo }: { repo: Repo }) {
@@ -90,7 +94,11 @@ export default function App() {
       </div>
     );
   } else if (view === "settings") {
-    main = <SettingsPage />;
+    main = (
+      <Suspense fallback={<Skeleton className="m-10 h-64 max-w-2xl" />}>
+        <SettingsPage />
+      </Suspense>
+    );
   } else if (view === "add-repo" || !repo) {
     main = (
       <div className="min-h-0 flex-1 overflow-y-auto">

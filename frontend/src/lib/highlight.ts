@@ -1,10 +1,10 @@
 // Syntax highlighting with Shiki, bundled locally.
 //
 // We use Shiki's "core" API with the JavaScript regex engine and import only
-// the languages and themes we need, so the bundle stays small and nothing is
-// downloaded at runtime.
-import { createHighlighterCore, type HighlighterCore } from "shiki/core";
-import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
+// the languages and themes we need. Everything is bundled locally (nothing is
+// downloaded from the internet) and split into chunks loaded on first use.
+// Shiki itself is loaded on demand, the first time code is shown.
+import type { HighlighterCore } from "shiki/core";
 
 const LANGS: Record<string, () => Promise<unknown>> = {
   python: () => import("shiki/langs/python.mjs"),
@@ -43,11 +43,14 @@ let highlighter: Promise<HighlighterCore> | null = null;
 const loaded = new Set<string>();
 
 function getHighlighter() {
-  highlighter ??= createHighlighterCore({
-    themes: [import("shiki/themes/github-light.mjs"), import("shiki/themes/github-dark.mjs")],
-    langs: [],
-    engine: createJavaScriptRegexEngine(),
-  });
+  highlighter ??= Promise.all([import("shiki/core"), import("shiki/engine/javascript")]).then(
+    ([{ createHighlighterCore }, { createJavaScriptRegexEngine }]) =>
+      createHighlighterCore({
+        themes: [import("shiki/themes/github-light.mjs"), import("shiki/themes/github-dark.mjs")],
+        langs: [],
+        engine: createJavaScriptRegexEngine(),
+      }),
+  );
   return highlighter;
 }
 

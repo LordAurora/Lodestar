@@ -62,8 +62,7 @@ async def delete_repo(repo_id: str, state: AppState = Depends(get_state)) -> Non
     job = state.index_jobs.get(repo_id)
     if job and job.status in ("scanning", "embedding"):
         raise HTTPException(409, "This repository is being indexed. Wait for it to finish.")
-    if state._retriever:
-        state.retriever.cache.invalidate(repo_id)
+    state.invalidate_vectors(repo_id)
     state.index_jobs.pop(repo_id, None)
     state.db.delete_repo(repo_id)
 
@@ -96,7 +95,7 @@ async def start_index(repo_id: str, state: AppState = Depends(get_state)) -> dic
             batch_size=state.config.embedding_batch_size,
             max_bytes=state.config.max_file_bytes,
         )
-        state.retriever.cache.invalidate(repo_id)
+        state.invalidate_vectors(repo_id)
 
     # Indexing is CPU- and IO-heavy: run it in a worker thread.
     asyncio.get_running_loop().run_in_executor(None, run)

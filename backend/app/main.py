@@ -1,6 +1,6 @@
 """FastAPI application entry point.
 
-Run with ``uvicorn app.main:app`` (or ``make dev``). On startup we:
+Run with ``uvicorn --factory app.main:create_app`` (or ``make dev``). On startup we:
 
 1. install the network guard (outbound connections to anything but
    localhost are blocked),
@@ -73,14 +73,11 @@ def create_app(state: AppState | None = None, warm_up: bool = True) -> FastAPI:
     return app
 
 
-app = create_app()
-
-
 def run() -> None:
     import uvicorn
 
     config = get_config()
-    uvicorn.run("app.main:app", host=config.host, port=config.port)
+    uvicorn.run("app.main:create_app", factory=True, host=config.host, port=config.port)
 
 
 if __name__ == "__main__":

@@ -1,10 +1,51 @@
+<div align="center">
+
 # Lodestar
 
-**A 100% local code-base assistant.** Point Lodestar at a Git repository on your machine, let it index the code, and ask questions like *"How does authentication work in this project?"*. Answers are grounded in the code and cite `file:line` sources.
+**Ask questions about your code base. Get answers with `file:line` citations. Nothing leaves your machine.**
+
+![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React_19-20232A?logo=react&logoColor=61DAFB)
+![Foundry Local](https://img.shields.io/badge/LLM-Foundry_Local-0078D4)
+![Local only](https://img.shields.io/badge/network-localhost_only-success)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue)
+
+<img src="docs/screenshots/chat-answer-light.png" alt="Lodestar answering a question about authentication, with cited sources" width="900" />
+
+</div>
+
+Lodestar is a **100% local** code-base assistant. Point it at a Git repository on your machine, let it index the code, and ask questions like *"How does authentication work in this project?"*. Answers are grounded in the code and cite their sources.
 
 The language model runs on-device through **Microsoft Foundry Local**. Code, prompts and embeddings never leave the machine: the backend blocks every outbound connection that is not to `localhost`, and the UI loads no fonts, icons or scripts from the internet.
 
 Lodestar is the companion project for the tutorial *Building Your First Local RAG Application with Foundry Local*. The RAG pipeline (chunking, embedding, retrieval, prompting) is written by hand, with no LangChain or LlamaIndex, so each step is easy to read.
+
+## Features
+
+- **Code-aware indexing:** tree-sitter splits Python, JavaScript, TypeScript, Go, Java and C# at function, method and class boundaries. Re-indexing is incremental (SHA-256 per file).
+- **Hybrid retrieval:** semantic vectors and BM25 keyword search (SQLite FTS5), merged with Reciprocal Rank Fusion.
+- **Grounded answers:** inline `[n]` citations link to the exact lines. Below a relevance threshold, Lodestar says it found nothing instead of guessing, and the model is never called.
+- **Streaming chat:** Server-Sent Events, multi-turn conversations with follow-up rewriting, persisted per repository.
+- **Private by design:** Foundry Local on `127.0.0.1`, a socket-level guard that blocks non-local connections, and fonts, icons and syntax highlighting bundled with the app.
+- **Clean SaaS UI:** React, Tailwind and shadcn/ui-style components, Lucide icons, and a monochrome light, dark and system theme.
+
+## Quick start
+
+```bash
+make setup   # or .\make.ps1 setup on Windows — installs deps and downloads models
+make run     # open http://127.0.0.1:8000 and add examples/bookshelf
+```
+
+You need [Foundry Local](#prerequisites), Python 3.11+ and Node.js 20+. See [Setup](#setup) for details.
+
+## Screenshots
+
+| Onboarding | Source preview (dark) |
+|---|---|
+| <img src="docs/screenshots/onboarding-light.png" alt="Onboarding screen with repository path input" /> | <img src="docs/screenshots/source-drawer-dark.png" alt="Source drawer showing highlighted lines in dark theme" /> |
+| **Empty chat** | **Settings (dark)** |
+| <img src="docs/screenshots/chat-empty-light.png" alt="Empty chat with suggested questions" /> | <img src="docs/screenshots/settings-dark.png" alt="Settings page with model and retrieval options" /> |
 
 ---
 
@@ -190,3 +231,18 @@ examples/           bookshelf sample repo + eval questions
 | `npm ci` hangs or fails with a TLS reset | Your network may block `registry.npmjs.org`. Use a mirror for the install only: `npm ci --registry=https://registry.npmmirror.com`. |
 | Python crashes (access violation) while chunking | tree-sitter 0.26 is incompatible with tree-sitter-language-pack 1.20 grammars. `pyproject.toml` pins `tree-sitter<0.26`. Reinstall with `pip install -e backend`. |
 | Windows symlink warning from Hugging Face | Harmless. Enable Developer Mode to silence it. |
+| The first answer after a restart takes a minute | Foundry Local loads the chat model into memory on the first question. Later answers are faster. |
+
+## Contributing
+
+Issues and pull requests are welcome. Before opening a PR, please run:
+
+```bash
+make lint && make test   # or: .\make.ps1 lint; .\make.ps1 test
+```
+
+CI (`.github/workflows/ci.yml`) runs the same checks on every push: ruff and pytest for the backend, and TypeScript, ESLint, Prettier and a production build for the frontend. The tests use a fake embedder and a fake LLM, so they do not need Foundry Local or a GPU.
+
+## License
+
+[MIT](LICENSE)
