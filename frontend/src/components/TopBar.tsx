@@ -1,4 +1,4 @@
-import { RefreshCw } from "lucide-react";
+import { ChevronRight, FolderGit2, MessagesSquare, RefreshCw } from "lucide-react";
 import { LocalOnlyBadge } from "@/components/RuntimeStatus";
 import { Badge, Dot } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { timeAgo } from "@/lib/utils";
 
 const s = strings.topbar;
 
+/** Breadcrumb (repo / Chat), index status, privacy badge and the Re-index action. */
 export function TopBar({
   repo,
   indexing,
@@ -35,14 +36,20 @@ export function TopBar({
   );
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-5">
-      <div className="min-w-0">
-        <h1 className="truncate text-[15px] font-semibold" title={repo.path}>
-          {repo.name}
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background px-5">
+      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-[13px]">
+        <span className="flex min-w-0 items-center gap-2 text-muted" title={repo.path}>
+          <FolderGit2 className="size-4 shrink-0" />
+          <span className="truncate">{repo.name}</span>
+        </span>
+        <ChevronRight className="size-3.5 shrink-0 text-border-strong" aria-hidden />
+        <h1 className="flex items-center gap-2 font-medium">
+          <MessagesSquare className="size-4 shrink-0" />
+          {s.chat}
         </h1>
-      </div>
-      <div className="hidden sm:block">{status}</div>
-      <div className="ml-auto flex items-center gap-3">
+      </nav>
+      <div className="hidden md:block">{status}</div>
+      <div className="ml-auto flex items-center gap-2">
         <LocalOnlyBadge />
         <Button variant="secondary" size="sm" onClick={onReindex} disabled={indexing}>
           <RefreshCw className={indexing ? "animate-spin" : undefined} />

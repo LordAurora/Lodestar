@@ -1,5 +1,6 @@
 import { AlertCircle, Check, Copy, Info, RotateCcw, Search } from "lucide-react";
 import { useState } from "react";
+import { Logo } from "@/components/Logo";
 import { Markdown } from "@/components/Markdown";
 import { SourceRow, SourcesList } from "@/components/SourcesList";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ export interface DisplayMessage {
 export function UserMessage({ message }: { message: DisplayMessage }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[85%] rounded-lg border border-border bg-surface px-4 py-2.5 whitespace-pre-wrap">
+      <div className="max-w-[85%] rounded-2xl rounded-br-md bg-surface-2 px-4 py-2.5 whitespace-pre-wrap">
         {message.content}
       </div>
     </div>
@@ -61,7 +62,7 @@ function NoAnswerCard({ suggestions }: { suggestions: Source[] }) {
   );
 }
 
-export function AssistantMessage({
+function AssistantBody({
   message,
   isLast,
   onRegenerate,
@@ -167,6 +168,23 @@ export function AssistantMessage({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/** Assistant turn: the Lodestar mark and name, then the answer. */
+export function AssistantMessage(props: {
+  message: DisplayMessage;
+  isLast: boolean;
+  onRegenerate: () => void;
+}) {
+  return (
+    <div className="flex gap-3.5">
+      <Logo size={26} className="mt-0.5" />
+      <div className="min-w-0 flex-1">
+        <div className="mb-1.5 text-[13px] font-semibold">{s.assistant}</div>
+        <AssistantBody {...props} />
+      </div>
     </div>
   );
 }

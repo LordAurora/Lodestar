@@ -1,5 +1,6 @@
-import { ArrowUp, Square } from "lucide-react";
+import { ArrowUp, ShieldCheck, Square } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { Kbd } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { strings } from "@/lib/strings";
 
@@ -36,7 +37,7 @@ export const Composer = forwardRef<
 
   return (
     <div className="mx-auto w-full max-w-[760px] px-4 pb-4 sm:px-6">
-      <div className="flex items-end gap-2 rounded-xl border border-border bg-background p-2 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20">
+      <div className="flex items-end gap-2 rounded-xl border border-border bg-background p-2 shadow-sm transition-colors focus-within:border-border-strong focus-within:ring-4 focus-within:ring-surface-2">
         <textarea
           ref={area}
           value={text}
@@ -68,9 +69,21 @@ export const Composer = forwardRef<
           </Button>
         )}
       </div>
-      <p className="mt-2 text-center text-xs text-muted">
-        {s.hint} <span className="hidden sm:inline">· {s.shortcuts}</span>
-      </p>
+      <div className="mt-2 flex items-center justify-between gap-4 px-1 text-xs text-muted">
+        <span className="flex items-center gap-1.5">
+          <ShieldCheck className="size-3.5" />
+          {s.hint}
+        </span>
+        <span className="hidden items-center gap-1 sm:flex">
+          <Kbd>Enter</Kbd> {s.sendHint}
+          <span className="mx-1.5 text-border-strong">·</span>
+          <Kbd>Shift</Kbd>
+          <Kbd>Enter</Kbd> {s.newLineHint}
+          <span className="mx-1.5 text-border-strong">·</span>
+          <Kbd>Ctrl</Kbd>
+          <Kbd>K</Kbd> {s.focusHint}
+        </span>
+      </div>
     </div>
   );
 });

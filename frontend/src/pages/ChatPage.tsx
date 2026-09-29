@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Sparkles } from "lucide-react";
+import { ArrowUpRight, Database, KeyRound, Network, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Composer, type ComposerHandle } from "@/components/Composer";
+import { Logo } from "@/components/Logo";
 import { AssistantMessage, UserMessage, type DisplayMessage } from "@/components/MessageView";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, streamChat, type Message, type Repo } from "@/lib/api";
@@ -10,6 +11,7 @@ import { keys } from "@/lib/queries";
 import { strings } from "@/lib/strings";
 
 const s = strings.chat;
+const SUGGESTION_ICONS: LucideIcon[] = [KeyRound, Database, Network];
 
 function fromServer(m: Message): DisplayMessage {
   const question = m.role === "assistant" ? undefined : m.content;
@@ -190,24 +192,34 @@ export function ChatPage({ repo }: { repo: Repo }) {
           )}
 
           {empty && (
-            <div className="flex flex-col items-center pt-[12vh] text-center">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
-                <Sparkles className="size-5" />
-              </div>
-              <h2 className="mt-4 text-xl font-semibold tracking-tight">
+            <div className="flex flex-col items-center pt-[10vh] text-center">
+              <Logo size={40} />
+              <h2 className="mt-5 text-2xl font-semibold tracking-tight">
                 {s.emptyTitle(repo.name)}
               </h2>
-              <p className="mt-1.5 text-muted">{s.emptySubtitle}</p>
-              <div className="mt-6 flex flex-wrap justify-center gap-2">
-                {s.suggestions.map((q) => (
-                  <button
-                    key={q}
-                    onClick={() => ask(q)}
-                    className="rounded-full border border-border bg-background px-3.5 py-1.5 text-[13px] hover:border-accent hover:text-accent-text"
-                  >
-                    {q}
-                  </button>
-                ))}
+              <p className="mt-2 text-muted">{s.emptySubtitle}</p>
+              <div className="mt-8 grid w-full gap-3 text-left sm:grid-cols-3">
+                {s.suggestions.map((item, i) => {
+                  const Icon = SUGGESTION_ICONS[i];
+                  return (
+                    <button
+                      key={item.question}
+                      onClick={() => ask(item.question)}
+                      className="group flex flex-col gap-3 rounded-lg border border-border bg-background p-4 transition-colors hover:border-border-strong hover:bg-surface"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="flex size-8 items-center justify-center rounded-md border border-border bg-surface">
+                          <Icon className="size-4" />
+                        </span>
+                        <ArrowUpRight className="size-4 text-muted opacity-0 transition-opacity group-hover:opacity-100" />
+                      </div>
+                      <div>
+                        <div className="text-[13px] font-medium">{item.title}</div>
+                        <div className="mt-1 text-xs text-muted">{item.question}</div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
