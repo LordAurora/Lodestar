@@ -32,7 +32,7 @@ const ENTRIES: Entry[] = [
   { key: "endpoints", label: s.endpoints, icon: Route, page: "endpoints" },
   { key: "env_vars", label: s.env, icon: KeyRound, page: "config" },
   { key: "undocumented", label: s.undocumented, icon: FileText, page: "docs" },
-  { key: "duplicate_groups", label: s.duplicates, icon: Copy, page: "duplicates" },
+  { key: "duplicate_pairs", label: s.duplicates, icon: Copy, page: "duplicates" },
   { key: "debt_items", label: s.debt, icon: ListChecks, page: "debt" },
 ];
 

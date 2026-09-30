@@ -295,6 +295,49 @@ CREATE TABLE IF NOT EXISTS endpoints (
 );
 """
 
+# Duplicate and near-duplicate functions. `code_fingerprints` follows each file's lifecycle;
+# the pairs and the cached groups are rebuilt whenever any file changed.
+DUPLICATE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS code_fingerprints (
+    id          INTEGER PRIMARY KEY,
+    repo_id     TEXT NOT NULL,
+    symbol_id   INTEGER NOT NULL,
+    file_path   TEXT NOT NULL,
+    start_line  INTEGER NOT NULL,
+    end_line    INTEGER NOT NULL,
+    norm_hash   TEXT NOT NULL,             -- hash of the code with names and literals erased
+    token_count INTEGER NOT NULL,
+    file_hash   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_fingerprints_file ON code_fingerprints(file_path);
+CREATE INDEX IF NOT EXISTS idx_fingerprints_hash ON code_fingerprints(norm_hash);
+
+CREATE TABLE IF NOT EXISTS duplicate_pairs (
+    a   INTEGER NOT NULL,                  -- symbol ids, a < b
+    b   INTEGER NOT NULL,
+    sim REAL NOT NULL,                     -- cosine similarity of the chunk embeddings
+    PRIMARY KEY (a, b)
+);
+
+CREATE TABLE IF NOT EXISTS duplicate_groups (
+    id               INTEGER PRIMARY KEY,
+    repo_id          TEXT NOT NULL,
+    params_key       TEXT NOT NULL,        -- the thresholds and toggles this result was made with
+    type             TEXT NOT NULL,        -- exact | similar
+    size             INTEGER NOT NULL,
+    avg_similarity   REAL NOT NULL,
+    duplicated_lines INTEGER NOT NULL,
+    value            REAL NOT NULL         -- refactor value: size x duplicated lines
+);
+CREATE INDEX IF NOT EXISTS idx_duplicate_groups_key ON duplicate_groups(params_key);
+
+CREATE TABLE IF NOT EXISTS duplicate_members (
+    group_id  INTEGER NOT NULL,
+    symbol_id INTEGER NOT NULL,
+    PRIMARY KEY (group_id, symbol_id)
+);
+"""
+
 # (version, SQL). Versions only ever grow, and every script must be safe to run twice.
 MIGRATIONS: list[tuple[int, str]] = [
     (1, REPO_SCHEMA),
@@ -302,6 +345,7 @@ MIGRATIONS: list[tuple[int, str]] = [
     (3, ENV_SCHEMA),
     (4, DEBT_SCHEMA),
     (5, ENDPOINT_SCHEMA),
+    (6, DUPLICATE_SCHEMA),
 ]
 LATEST_VERSION = MIGRATIONS[-1][0]
 

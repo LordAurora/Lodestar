@@ -13,6 +13,9 @@ const ConfigPage = lazy(() =>
 const DebtPage = lazy(() =>
   import("@/pages/insights/DebtPage").then((m) => ({ default: m.DebtPage })),
 );
+const DuplicatesPage = lazy(() =>
+  import("@/pages/insights/DuplicatesPage").then((m) => ({ default: m.DuplicatesPage })),
+);
 const DiagramsPage = lazy(() =>
   import("@/pages/insights/DiagramsPage").then((m) => ({ default: m.DiagramsPage })),
 );
@@ -30,6 +33,8 @@ export function InsightsPage({ repo }: { repo: Repo }) {
     <Suspense fallback={<Skeleton className="m-6 h-64 max-w-3xl" />}>
       {insight === "config" ? (
         <ConfigPage repo={repo} />
+      ) : insight === "duplicates" ? (
+        <DuplicatesPage repo={repo} />
       ) : insight === "diagrams" ? (
         <DiagramsPage key={JSON.stringify(insightParams)} repo={repo} />
       ) : insight === "impact" ? (

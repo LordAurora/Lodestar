@@ -219,6 +219,57 @@ export interface DiagramParams {
   style?: "flowchart" | "sequence";
 }
 
+export interface DuplicateMember {
+  symbol_id: number;
+  qualified_name: string;
+  file_path: string;
+  start_line: number;
+  end_line: number;
+  lines: number;
+  is_test: boolean;
+}
+
+export interface DuplicateGroup {
+  id: number;
+  type: "exact" | "similar";
+  size: number;
+  avg_similarity: number;
+  duplicated_lines: number;
+  value: number;
+  members: DuplicateMember[];
+  more?: number;
+}
+
+export interface DuplicateList {
+  groups: DuplicateGroup[];
+  total: number;
+  duplicated_lines: number;
+  min_similarity: number;
+  floor: number;
+  compared_pairs: number;
+}
+
+export interface DuplicateParams {
+  min_similarity?: number;
+  type?: "all" | "exact" | "similar";
+  include_tests?: boolean;
+  min_lines?: number;
+}
+
+export interface DiffRow {
+  op: "equal" | "replace" | "delete" | "insert";
+  left: string | null;
+  right: string | null;
+}
+
+export interface DuplicateDiff {
+  a: DuplicateMember;
+  b: DuplicateMember;
+  language: string;
+  rows: DiffRow[];
+  ratio: number;
+}
+
 export interface SymbolHit {
   id: number;
   name: string;
@@ -323,10 +374,12 @@ export interface DebtBoard {
   };
 }
 
-function query(params: Record<string, string | number | undefined>): string {
+function query(params: Record<string, string | number | boolean | undefined>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== "" && value !== 0) search.set(key, String(value));
+    if (value !== undefined && value !== "" && value !== 0 && value !== false) {
+      search.set(key, String(value));
+    }
   }
   const text = search.toString();
   return text ? `?${text}` : "";
@@ -398,6 +451,12 @@ export const api = {
     request<{ variables: EnvVariable[]; total: number }>(`/repos/${repoId}/env${query({ q })}`),
   envExample: (repoId: string) =>
     request<{ text: string; count: number }>(`/repos/${repoId}/env/example`),
+  duplicates: (repoId: string, params: DuplicateParams) =>
+    request<DuplicateList>(`/repos/${repoId}/duplicates${query({ ...params })}`),
+  duplicateGroup: (repoId: string, groupId: number) =>
+    request<DuplicateGroup>(`/repos/${repoId}/duplicates/${groupId}`),
+  duplicateDiff: (repoId: string, groupId: number, a: number, b: number) =>
+    request<DuplicateDiff>(`/repos/${repoId}/duplicates/${groupId}/diff${query({ a, b })}`),
   diagram: (repoId: string, params: DiagramParams) =>
     request<Diagram>(`/repos/${repoId}/diagram${query({ ...params })}`),
   diagramScopes: (repoId: string) =>
@@ -413,6 +472,11 @@ export const api = {
   refreshDebtTopics: (repoId: string) =>
     request<{ status: string }>(`/repos/${repoId}/debt/topics/refresh`, { method: "POST" }),
 };
+
+/** A URL that downloads the duplicate groups as a Markdown checklist. */
+export function duplicatesExportUrl(repoId: string, params: DuplicateParams = {}): string {
+  return `/api/repos/${repoId}/duplicates/export${query({ ...params })}`;
+}
 
 /** A URL that downloads the endpoint catalog (respecting the current filters). */
 export function endpointsExportUrl(

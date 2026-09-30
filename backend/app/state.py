@@ -75,7 +75,7 @@ class AppState:
     @property
     def analyzers(self) -> list:
         """The Insights analyzers, configured from the settings (for example the debt tags)."""
-        return default_analyzers(self.config.debt_tags)
+        return default_analyzers(self.config.debt_tags, self.config.duplicate_block_size)
 
     def invalidate_vectors(self, repo_id: str) -> None:
         """Forget a repo's cached embedding matrix (after re-indexing or deletion)."""

@@ -64,6 +64,13 @@ class Config(BaseSettings):
     debt_tags: str = "TODO,FIXME,HACK,XXX,BUG,NOTE"
     debt_topic_threshold: float = 0.6
 
+    # Duplicate finder: how similar two functions must be (cosine of their embeddings) to be
+    # reported by default, the smallest function considered (lines), and the block size of the
+    # matrix product that keeps memory bounded on large repositories.
+    duplicate_min_similarity: float = 0.90
+    duplicate_min_lines: int = 5
+    duplicate_block_size: int = 512
+
     # Indexing limits.
     max_file_bytes: int = 1_000_000
 
