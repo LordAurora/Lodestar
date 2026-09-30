@@ -6,6 +6,7 @@ import {
   watchIndex,
   type DebtFilters,
   type DiagramParams,
+  type DuplicateParams,
   type EndpointFilters,
   type IndexProgress,
 } from "./api";
@@ -83,6 +84,32 @@ export const useEnv = (repoId: string, q: string) =>
 
 export const useEnvExample = (repoId: string) =>
   useQuery({ queryKey: keys.envExample(repoId), queryFn: () => api.envExample(repoId) });
+
+export const useDuplicates = (repoId: string, params: DuplicateParams) =>
+  useQuery({
+    queryKey: ["insights", repoId, "duplicates", params] as const,
+    queryFn: () => api.duplicates(repoId, params),
+    placeholderData: (previous) => previous,
+  });
+
+export const useDuplicateGroup = (repoId: string, groupId: number | null) =>
+  useQuery({
+    queryKey: ["insights", repoId, "duplicate-group", groupId] as const,
+    queryFn: () => api.duplicateGroup(repoId, groupId!),
+    enabled: groupId !== null,
+  });
+
+export const useDuplicateDiff = (
+  repoId: string,
+  groupId: number | null,
+  a: number | null,
+  b: number | null,
+) =>
+  useQuery({
+    queryKey: ["insights", repoId, "duplicate-diff", groupId, a, b] as const,
+    queryFn: () => api.duplicateDiff(repoId, groupId!, a!, b!),
+    enabled: groupId !== null && a !== null && b !== null && a !== b,
+  });
 
 export const useDiagram = (repoId: string, params: DiagramParams | null) =>
   useQuery({
