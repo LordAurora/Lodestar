@@ -125,3 +125,26 @@ def sample_repo(tmp_path: Path) -> Path:
     write(root, "node_modules/lib/index.js", "module.exports = 1;\n")
     (root / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n\0\0\0binary")
     return root
+
+
+@pytest.fixture
+def endpoints_of(tmp_path: Path, db: Database, fake_embedder):
+    """Index a throw-away repo made of ``{path: source}`` and return its endpoints.
+
+    Each result is ``(METHOD, full path, handler, is_partial)``; compare them as a set.
+    """
+    from app.analysis.endpoints.catalog import list_endpoints
+    from app.indexer import IndexProgress, index_repository
+
+    def run(files: dict[str, str]) -> set[tuple[str, str, str | None, bool]]:
+        root = tmp_path / f"ep{len(list(tmp_path.iterdir()))}"
+        for rel, content in files.items():
+            write(root, rel, content)
+        repo = db.add_repo(str(root), root.name)
+        progress = index_repository(db, repo["id"], root, fake_embedder, IndexProgress())
+        assert progress.status == "done" and not progress.analysis_error, progress.error
+        with db.repo(repo["id"]) as conn:
+            found = list_endpoints(conn)["endpoints"]
+        return {(e["method"], e["path"], e["handler"], e["partial"]) for e in found}
+
+    return run

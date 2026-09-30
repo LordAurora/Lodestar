@@ -14,7 +14,19 @@ from pathlib import Path
 
 from app.analysis.extract import SUPPORTED_LANGUAGES, extract_facts
 from app.analysis.pipeline import FileContext
-from app.analysis.resolve import CallResolver, RepoIndex, Sym
+from app.analysis.resolve import CallResolver, RepoIndex, Sym, split_alias
+
+
+def load_repo_index(conn) -> RepoIndex:
+    """File lookup tables for import resolution (also used by the endpoint resolver)."""
+    languages = {r["path"]: r["language"] for r in conn.execute("SELECT path, language FROM files")}
+    namespaces: dict[str, str] = {}
+    for r in conn.execute("SELECT path, meta FROM analysis_files WHERE analyzer = 'symbols'"):
+        if r["meta"]:
+            ns = json.loads(r["meta"]).get("namespace")
+            if ns:
+                namespaces[r["path"]] = ns
+    return RepoIndex(languages, namespaces)
 
 
 class SymbolsAnalyzer:
@@ -65,16 +77,8 @@ class SymbolsAnalyzer:
     # ---- cross-file resolution -------------------------------------------------
 
     def finalize(self, conn, repo_id: str, root: Path) -> None:
-        languages = {
-            r["path"]: r["language"] for r in conn.execute("SELECT path, language FROM files")
-        }
-        namespaces: dict[str, str] = {}
-        for r in conn.execute("SELECT path, meta FROM analysis_files WHERE analyzer = 'symbols'"):
-            if r["meta"]:
-                ns = json.loads(r["meta"]).get("namespace")
-                if ns:
-                    namespaces[r["path"]] = ns
-        index = RepoIndex(languages, namespaces)
+        index = load_repo_index(conn)
+        languages = index.languages
 
         # 1. Imports -> the files they point to.
         import_targets: dict[str, set[str]] = defaultdict(set)
@@ -133,7 +137,8 @@ class SymbolsAnalyzer:
 
         # 3. `from x import name` also counts as a (high confidence) use of `name`.
         for path, line, file_hash, _module, names, target_files in named_imports:
-            for name in names:
+            for imported in names:
+                name = split_alias(imported)[0]
                 for sym in resolver.by_name.get(name, ()):
                     if sym.file in target_files:
                         ref_rows.append(

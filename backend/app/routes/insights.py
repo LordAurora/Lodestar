@@ -32,6 +32,7 @@ OVERVIEW_COUNTS = {
     ),
     "env_vars": "SELECT COUNT(DISTINCT name) FROM env_vars",
     "debt_items": "SELECT COUNT(*) FROM debt_items",
+    "endpoints": "SELECT COUNT(*) FROM endpoints",
     "call_edges": "SELECT COUNT(*) FROM symbol_references WHERE to_symbol_id IS NOT NULL",
     "imports": "SELECT COUNT(*) FROM imports WHERE resolved_file_path IS NOT NULL",
 }

@@ -64,6 +64,12 @@ class Target:
 # ---- imports -> files -------------------------------------------------------
 
 
+def split_alias(imported: str) -> tuple[str, str]:
+    """`"router as api_router"` -> (`router`, `api_router`); a plain name is its own local name."""
+    original, _, local = imported.partition(" as ")
+    return original, (local or original)
+
+
 def _dotted_suffixes(path: str, drop_ext: str, *, package_file: str | None = None) -> list[str]:
     """`src/app/util.py` -> ['util', 'app.util', 'src.app.util']."""
     stem = path[: -len(drop_ext)] if path.endswith(drop_ext) else path
@@ -134,15 +140,17 @@ class RepoIndex:
             stem = posixpath.join(base, rest) if rest else base
             stem = "" if stem == "." else stem
             targets += [Target(f, last if rest else None) for f in self._py_path(stem)]
-            for name in names:
+            for imported in names:
+                name, local = split_alias(imported)  # "a as b" -> a, b
                 sub = posixpath.join(stem, name) if stem else name
-                targets += [Target(f, name) for f in self._py_path(sub)]
+                targets += [Target(f, local) for f in self._py_path(sub)]
         else:
             found = self.py_modules.get(module, [])
             targets += [Target(f, last) for f in (found if len(found) <= 3 else [])]
-            for name in names:
+            for imported in names:
+                name, local = split_alias(imported)
                 sub = self.py_modules.get(f"{module}.{name}", [])
-                targets += [Target(f, name) for f in (sub if len(sub) <= 3 else [])]
+                targets += [Target(f, local) for f in (sub if len(sub) <= 3 else [])]
         return targets
 
     # JavaScript / TypeScript ------------------------------------------------
