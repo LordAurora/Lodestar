@@ -14,7 +14,7 @@ import time
 from bookshelf.config import settings
 from bookshelf.storage import UserRepository
 
-PBKDF2_ITERATIONS = 200_000
+PBKDF2_ITERATIONS = 200_000  # TODO: move to config and raise to 600_000
 
 
 class AuthError(Exception):

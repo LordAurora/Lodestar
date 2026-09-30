@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from pathlib import Path
 
 from app.analysis.extract import SUPPORTED_LANGUAGES, extract_facts
 from app.analysis.pipeline import FileContext
@@ -63,7 +64,7 @@ class SymbolsAnalyzer:
 
     # ---- cross-file resolution -------------------------------------------------
 
-    def finalize(self, conn, repo_id: str) -> None:
+    def finalize(self, conn, repo_id: str, root: Path) -> None:
         languages = {
             r["path"]: r["language"] for r in conn.execute("SELECT path, language FROM files")
         }

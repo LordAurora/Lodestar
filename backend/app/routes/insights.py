@@ -12,11 +12,15 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.analysis.env import generate_example, list_env, read_dotenv_keys
+from app.analysis.env import generate_example, is_dotenv_path, list_env, read_dotenv_keys
+from app.chunking import detect_language
 from app.indexer import RUNNING_STATUSES, IndexProgress, analyze_repository
 from app.state import AppState, get_state
 
 router = APIRouter(prefix="/api/repos/{repo_id}")
+
+# Files the code preview refuses to show, even though they are inside the repository.
+SECRET_SUFFIXES = {".pem", ".key", ".p12", ".pfx", ".jks", ".keystore"}
 
 # Overview counters. Each Insights feature adds its own line here.
 OVERVIEW_COUNTS = {
@@ -27,6 +31,7 @@ OVERVIEW_COUNTS = {
         " AND name NOT LIKE '\\_%' ESCAPE '\\'"
     ),
     "env_vars": "SELECT COUNT(DISTINCT name) FROM env_vars",
+    "debt_items": "SELECT COUNT(*) FROM debt_items",
     "call_edges": "SELECT COUNT(*) FROM symbol_references WHERE to_symbol_id IS NOT NULL",
     "imports": "SELECT COUNT(*) FROM imports WHERE resolved_file_path IS NOT NULL",
 }
@@ -51,8 +56,9 @@ async def analyze(repo_id: str, state: AppState = Depends(get_state)) -> dict:
     progress = IndexProgress()
     state.index_jobs[repo_id] = progress
     asyncio.get_running_loop().run_in_executor(
-        None, analyze_repository, state.db, repo_id, Path(repo["path"]), progress, True
-    )
+        None, analyze_repository, state.db, repo_id, Path(repo["path"]), progress, True,
+        state.analyzers,
+    )  # fmt: skip
     return {"job_id": repo_id, "status": progress.status}
 
 
@@ -101,5 +107,54 @@ async def env_example(repo_id: str, state: AppState = Depends(get_state)) -> dic
         with state.db.repo(repo_id) as conn:
             variables = list_env(conn)
         return {"text": generate_example(variables), "count": len(variables)}
+
+    return await asyncio.to_thread(read)
+
+
+@router.get("/file")
+async def file_preview(
+    repo_id: str,
+    path: str,
+    start: int = 1,
+    end: int | None = None,
+    context: int = 30,
+    state: AppState = Depends(get_state),
+) -> dict:
+    """A file's lines around ``start``-``end``, in the shape the code drawer already reads.
+
+    Insights rows point at files and lines rather than at indexed chunks. The path must
+    stay inside the repository, and env files and key material are never served.
+    """
+    repo = repo_or_404(state, repo_id)
+    root = Path(repo["path"]).resolve()
+    target = (root / path).resolve()
+    if root not in target.parents or not target.is_file():
+        raise HTTPException(404, "File not found in this repository.")
+    if is_dotenv_path(path) or target.suffix.lower() in SECRET_SUFFIXES:
+        raise HTTPException(403, "This kind of file is never shown, because it may hold secrets.")
+
+    def read() -> dict:
+        lines = target.read_text("utf-8", errors="replace").splitlines()
+        first_marked = max(1, min(start, max(len(lines), 1)))
+        last_marked = min(max(end or first_marked, first_marked), max(len(lines), 1))
+        first = max(1, first_marked - context)
+        last = min(len(lines), last_marked + context)
+        language = detect_language(path)
+        return {
+            "chunk": {
+                "chunk_id": None,
+                "file_path": path,
+                "language": language,
+                "symbol_name": None,
+                "symbol_kind": "file",
+                "start_line": first_marked,
+                "end_line": last_marked,
+            },
+            "language": language,
+            "first_line": first,
+            "lines": lines[first - 1 : last],
+            "stale": False,
+            "absolute_path": str(target),
+        }
 
     return await asyncio.to_thread(read)

@@ -84,7 +84,7 @@ class Analyzer(Protocol):
     def delete(self, conn, path: str) -> None:
         """Remove every row this analyzer wrote for ``path``."""
 
-    def finalize(self, conn, repo_id: str) -> None:
+    def finalize(self, conn, repo_id: str, root: Path) -> None:
         """Optional whole-repository step, run after files changed."""
 
 
@@ -185,7 +185,7 @@ def run_analysis(
             if analyzer is not None:
                 finalize = getattr(analyzer, "finalize", None)
                 if finalize:
-                    finalize(conn, repo_id)
+                    finalize(conn, repo_id, root)
                 conn.execute(
                     "INSERT OR REPLACE INTO analysis_state (analyzer, last_analyzed_at)"
                     " VALUES (?, ?)",

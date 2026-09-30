@@ -11,6 +11,7 @@ import threading
 
 from fastapi import Request
 
+from app.analysis.registry import default_analyzers
 from app.config import Config, SettingsStore
 from app.db import Database
 from app.embeddings import Embedder, create_embedder
@@ -34,6 +35,7 @@ class AppState:
         self.foundry = foundry or FoundryService(device=config.device)
         self.llm: LLMClient = llm or FoundryLLM(self.foundry)
         self.index_jobs: dict[str, IndexProgress] = {}
+        self.debt_jobs: dict[str, dict] = {}  # topic clustering jobs, by repo id
         self._embedder = embedder
         self._embedder_error: str | None = None
         self._retriever: Retriever | None = None
@@ -69,6 +71,11 @@ class AppState:
         if self._retriever is None:
             self._retriever = Retriever(self.db, self.embedder)
         return self._retriever
+
+    @property
+    def analyzers(self) -> list:
+        """The Insights analyzers, configured from the settings (for example the debt tags)."""
+        return default_analyzers(self.config.debt_tags)
 
     def invalidate_vectors(self, repo_id: str) -> None:
         """Forget a repo's cached embedding matrix (after re-indexing or deletion)."""

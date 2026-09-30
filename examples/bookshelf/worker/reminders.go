@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/smtp"
+	"os"
 	"time"
 )
 
@@ -22,9 +23,16 @@ type Mailer struct {
 	From string
 }
 
+// MailerFromEnv builds a Mailer from the SMTP_HOST and SMTP_FROM environment variables.
+func MailerFromEnv() Mailer {
+	return Mailer{Host: os.Getenv("SMTP_HOST"), From: os.Getenv("SMTP_FROM")}
+}
+
 // Send delivers a single email.
 func (m Mailer) Send(to, subject, body string) error {
+	// HACK: authentication is skipped because the dev relay accepts any sender
 	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s", m.From, to, subject, body)
+	// TODO: retry with exponential backoff when the relay is busy
 	return smtp.SendMail(m.Host, nil, m.From, []string{to}, []byte(msg))
 }
 

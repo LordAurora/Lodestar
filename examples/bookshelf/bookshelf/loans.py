@@ -24,6 +24,7 @@ def borrow_book(books: BookRepository, loans: LoanRepository, user_id: int, book
         raise LoanError("No such book")
     if book.copies_available <= 0:
         raise LoanError("No copies available")
+    # FIXME(dana): race condition when two users borrow the last copy at the same time
     today = date.today()
     due = today + timedelta(days=settings.loan_period_days)
     loan_id = loans.create(user_id, book_id, today, due)
@@ -39,6 +40,7 @@ def return_book(books: BookRepository, loans: LoanRepository, loan_id: int, book
 
 def late_fee(days_late: int) -> float:
     """Late fee: 0.50 per day for the first week, then 1.00 per day, capped at 20."""
+    # NOTE: the cap keeps a fee below the price of a typical book
     if days_late <= 0:
         return 0.0
     fee = min(days_late, 7) * 0.5 + max(days_late - 7, 0) * 1.0
