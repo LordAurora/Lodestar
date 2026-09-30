@@ -44,6 +44,7 @@ BINARY_EXTENSIONS = {
     ".tar", ".7z", ".rar", ".exe", ".dll", ".so", ".dylib", ".bin", ".class", ".jar", ".pyc",
     ".o", ".a", ".lib", ".woff", ".woff2", ".ttf", ".otf", ".eot", ".mp3", ".mp4", ".wav",
     ".mov", ".avi", ".db", ".sqlite", ".onnx", ".pt", ".safetensors", ".npy", ".parquet",
+    ".pem", ".key", ".p12", ".pfx", ".jks", ".keystore", ".env",  # secrets: never indexed
 }  # fmt: skip
 
 

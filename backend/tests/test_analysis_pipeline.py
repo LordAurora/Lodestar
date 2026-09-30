@@ -117,7 +117,8 @@ def refs(db, repo_id, kind="call"):
 def test_indexing_runs_the_analysis(db, indexed):
     with db.repo(indexed["id"]) as conn:
         assert conn.execute("SELECT COUNT(*) FROM symbols").fetchone()[0] >= 10
-        assert conn.execute("SELECT COUNT(*) FROM analysis_state").fetchone()[0] == 1
+        analyzers = {r[0] for r in conn.execute("SELECT analyzer FROM analysis_state")}
+    assert analyzers == {"symbols", "env"}
 
 
 def test_resolution_and_confidence_levels(db, indexed):

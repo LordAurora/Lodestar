@@ -12,6 +12,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from app.analysis.env import generate_example, list_env, read_dotenv_keys
 from app.indexer import RUNNING_STATUSES, IndexProgress, analyze_repository
 from app.state import AppState, get_state
 
@@ -25,6 +26,7 @@ OVERVIEW_COUNTS = {
         "SELECT COUNT(*) FROM symbols WHERE has_doc = 0 AND is_test = 0 AND kind != 'class'"
         " AND name NOT LIKE '\\_%' ESCAPE '\\'"
     ),
+    "env_vars": "SELECT COUNT(DISTINCT name) FROM env_vars",
     "call_edges": "SELECT COUNT(*) FROM symbol_references WHERE to_symbol_id IS NOT NULL",
     "imports": "SELECT COUNT(*) FROM imports WHERE resolved_file_path IS NOT NULL",
 }
@@ -72,5 +74,32 @@ async def insights_status(repo_id: str, state: AppState = Depends(get_state)) ->
             "analyzers": analyzed,
             "counts": counts,
         }
+
+    return await asyncio.to_thread(read)
+
+
+@router.get("/env")
+async def env_variables(repo_id: str, q: str = "", state: AppState = Depends(get_state)) -> dict:
+    """Every environment variable the code reads, with all usage locations."""
+    repo = repo_or_404(state, repo_id)
+
+    def read() -> dict:
+        declared = read_dotenv_keys(Path(repo["path"]))  # names only, never values
+        with state.db.repo(repo_id) as conn:
+            variables = list_env(conn, declared, q)
+        return {"variables": variables, "total": len(variables)}
+
+    return await asyncio.to_thread(read)
+
+
+@router.get("/env/example")
+async def env_example(repo_id: str, state: AppState = Depends(get_state)) -> dict:
+    """A generated `.env.example` (secrets are left empty)."""
+    repo_or_404(state, repo_id)
+
+    def read() -> dict:
+        with state.db.repo(repo_id) as conn:
+            variables = list_env(conn)
+        return {"text": generate_example(variables), "count": len(variables)}
 
     return await asyncio.to_thread(read)
