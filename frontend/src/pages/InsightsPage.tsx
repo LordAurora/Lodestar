@@ -13,6 +13,9 @@ const ConfigPage = lazy(() =>
 const DebtPage = lazy(() =>
   import("@/pages/insights/DebtPage").then((m) => ({ default: m.DebtPage })),
 );
+const DiagramsPage = lazy(() =>
+  import("@/pages/insights/DiagramsPage").then((m) => ({ default: m.DiagramsPage })),
+);
 const ImpactPage = lazy(() =>
   import("@/pages/insights/ImpactPage").then((m) => ({ default: m.ImpactPage })),
 );
@@ -22,11 +25,13 @@ const EndpointsPage = lazy(() =>
 
 /** The Insights area of one repository: picks the page chosen in the sidebar. */
 export function InsightsPage({ repo }: { repo: Repo }) {
-  const { insight } = useAppState();
+  const { insight, insightParams } = useAppState();
   return (
     <Suspense fallback={<Skeleton className="m-6 h-64 max-w-3xl" />}>
       {insight === "config" ? (
         <ConfigPage repo={repo} />
+      ) : insight === "diagrams" ? (
+        <DiagramsPage key={JSON.stringify(insightParams)} repo={repo} />
       ) : insight === "impact" ? (
         <ImpactPage repo={repo} />
       ) : insight === "endpoints" ? (
