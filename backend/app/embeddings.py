@@ -95,7 +95,10 @@ class FoundryEmbedder(Embedder):
         # Loads the model into memory (and downloads it first if allowed).
         self._model_id = foundry.ensure_model(alias, allow_download=allow_download)
         self._alias = alias
-        self.name = f"foundry:{alias}"
+        # GPU and CPU builds of a model give slightly different vectors (cosine ~0.97),
+        # so the device is part of the name: switching device re-indexes.
+        device = (foundry.active_device(alias) or "CPU").lower()
+        self.name = f"foundry:{alias}@{device}"
 
     def embed_documents(self, texts: list[str]) -> np.ndarray:
         client = self._foundry.sync_client()

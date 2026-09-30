@@ -316,6 +316,7 @@ function RuntimeLine({ collapsed }: { collapsed: boolean }) {
         {data?.chat_model.alias && (
           <span className="block truncate font-mono text-[11px] text-muted">
             {data.chat_model.alias}
+            {data.chat_model.device && ` · ${data.chat_model.device}`}
           </span>
         )}
       </span>

@@ -18,9 +18,17 @@ import logging
 import threading
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 log = logging.getLogger(__name__)
+
+# Foundry Local runs a model on the GPU through an "execution provider" (EP).
+# WebGPU works on any DirectX 12 / Vulkan / Metal GPU (NVIDIA, AMD, Intel) and is
+# a small download, so it is our default. The EP is fetched once by
+# `scripts/setup_models.py`; at runtime we only *register* it if it is already there.
+GPU_EP = "WebGpuExecutionProvider"
+GPU_EP_DIR = Path.home() / ".foundry" / "ep" / "webgpu-ep"
 
 # The web service ignores the API key, but the openai client requires one.
 DUMMY_API_KEY = "local-no-key"
@@ -55,8 +63,11 @@ class LLMClient(Protocol):
 class FoundryService:
     """Owns the Foundry Local manager and hands out OpenAI clients."""
 
-    def __init__(self, app_name: str = "lodestar"):
+    def __init__(self, app_name: str = "lodestar", device: str = "auto"):
         self._app_name = app_name
+        self._device = device  # "auto" (GPU if available), "gpu" or "cpu"
+        self._gpu_ready = False
+        self._active: dict[str, tuple[str, str]] = {}  # alias -> (model id, "GPU" or "CPU")
         self._lock = threading.RLock()
         self._manager = None
         self._base_url: str | None = None
@@ -94,6 +105,7 @@ class FoundryService:
                     manager.start_web_service()
                 self._base_url = manager.urls[0].rstrip("/") + "/v1"
                 self._manager = manager
+                self._register_gpu(manager)
                 self._error = None
                 log.info("Foundry Local web service at %s", self._base_url)
             except Exception as exc:
@@ -103,6 +115,43 @@ class FoundryService:
                     "`brew install microsoft/foundrylocal/foundrylocal` on macOS) and try again."
                 )
                 raise FoundryUnavailable(self._error) from exc
+
+    def _register_gpu(self, manager) -> None:
+        """Make the GPU execution provider available, without ever surprising the user
+        with a download: `auto` only registers an EP that is already on disk."""
+        if self._device == "cpu":
+            return
+        if self._device == "auto" and not GPU_EP_DIR.exists():
+            log.info("GPU execution provider not installed; using the CPU (run `make setup`).")
+            return
+        try:
+            manager.download_and_register_eps([GPU_EP])
+            eps = manager.discover_eps()
+            self._gpu_ready = any(e.is_registered for e in eps if e.name == GPU_EP)
+        except Exception as exc:
+            log.warning("Could not enable the GPU: %s", exc)
+
+    @staticmethod
+    def _device_of(variant) -> str:
+        runtime = variant.info.runtime
+        return str(runtime.device_type).upper() if runtime else "CPU"
+
+    def _candidates(self, alias: str) -> list:
+        """The model's variants in the order we would like to use them (GPU first)."""
+        model = self.manager.catalog.get_model(alias)
+        if model is None:
+            raise FoundryUnavailable(f"Model '{alias}' is not in the Foundry Local catalog.")
+        variants = list(model.variants) or [model]
+        gpu = [v for v in variants if self._device_of(v) == "GPU"]
+        cpu = [v for v in variants if self._device_of(v) != "GPU"]
+        if self._device == "cpu" or not self._gpu_ready:
+            return cpu or variants
+        return gpu + cpu
+
+    def active_device(self, alias: str) -> str | None:
+        """GPU or CPU for a model that was loaded through ``ensure_model``."""
+        active = self._active.get(alias)
+        return active[1] if active else None
 
     def stop(self) -> None:
         with self._lock:
@@ -127,6 +176,7 @@ class FoundryService:
             "running": self._manager is not None,
             "endpoint": self._base_url,
             "error": self._error,
+            "gpu": self._gpu_ready,
         }
 
     # ---- models -------------------------------------------------------
@@ -138,15 +188,19 @@ class FoundryService:
             info = model.info
             if (info.task or "").lower() not in CHAT_TASKS:
                 continue
+            variants = self._candidates(model.alias)
+            preferred = variants[0]
             job = self._jobs.get(model.alias)
+            loaded = next((v for v in variants if v.is_loaded), None)
             models.append(
                 {
                     "alias": model.alias,
-                    "id": model.id,
+                    "id": preferred.id,
                     "display_name": info.display_name or model.alias,
-                    "size_mb": info.file_size_mb,
-                    "cached": model.is_cached,
-                    "loaded": model.is_loaded,
+                    "size_mb": preferred.info.file_size_mb,
+                    "cached": any(v.is_cached for v in variants),
+                    "loaded": loaded is not None,
+                    "device": self._device_of(loaded or preferred),
                     "job": job.__dict__ if job and job.state != "ready" else None,
                 }
             )
@@ -154,24 +208,36 @@ class FoundryService:
         return models
 
     def is_ready(self, alias: str) -> bool:
-        model = self.manager.catalog.get_model(alias)
-        return bool(model and model.is_cached and model.is_loaded)
+        return any(v.is_cached and v.is_loaded for v in self._candidates(alias))
 
     def ensure_model(self, alias: str, allow_download: bool = True, progress=None) -> str:
-        """Make sure a model is downloaded and loaded. Returns its model id (blocking)."""
-        model = self.manager.catalog.get_model(alias)
-        if model is None:
-            raise FoundryUnavailable(f"Model '{alias}' is not in the Foundry Local catalog.")
-        if not model.is_cached:
-            if not allow_download:
+        """Make sure a model is downloaded and loaded. Returns its model id (blocking).
+
+        Tries the GPU variant first. If it cannot be loaded (for example not enough
+        video memory) we fall back to the CPU variant instead of failing.
+        """
+        candidates = self._candidates(alias)
+        if not allow_download:
+            candidates = [v for v in candidates if v.is_cached]
+            if not candidates:
                 raise FoundryUnavailable(
                     f"Model '{alias}' is not downloaded yet. Download it from the Settings page "
-                    f"or run `foundry model download {alias}`."
+                    "or run `python scripts/setup_models.py`."
                 )
-            model.download(progress)
-        if not model.is_loaded:
-            model.load()
-        return model.id
+        last_error: Exception | None = None
+        for variant in candidates:
+            try:
+                if not variant.is_cached:
+                    variant.download(progress)
+                if not variant.is_loaded:
+                    variant.load()
+            except Exception as exc:
+                log.warning("Could not load %s: %s", variant.id, exc)
+                last_error = exc
+                continue
+            self._active[alias] = (variant.id, self._device_of(variant))
+            return variant.id
+        raise FoundryUnavailable(f"Could not load '{alias}': {last_error}") from last_error
 
     def start_model_job(self, alias: str) -> ModelJob:
         """Download + load a model in a background thread, tracking progress."""
@@ -186,13 +252,7 @@ class FoundryService:
 
         def run() -> None:
             try:
-                model = self.manager.catalog.get_model(alias)
-                if model is None:
-                    raise FoundryUnavailable(f"Unknown model '{alias}'.")
-                if not model.is_cached:
-                    model.download(progress)
-                job.state, job.progress = "loading", 100.0
-                model.load()
+                self.ensure_model(alias, progress=progress)
                 job.state = "ready"
             except Exception as exc:
                 job.state, job.error = "error", str(exc)

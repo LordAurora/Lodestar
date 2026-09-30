@@ -35,7 +35,11 @@ async def health(state: AppState = Depends(get_state)) -> dict:
     return {
         "status": "ok",
         "foundry": foundry,
-        "chat_model": {"alias": model, "ready": model_ready},
+        "chat_model": {
+            "alias": model,
+            "ready": model_ready,
+            "device": state.foundry.active_device(model),
+        },
         "embedder": state.embedder_status(),
         "privacy": privacy,
     }

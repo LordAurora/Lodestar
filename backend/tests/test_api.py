@@ -20,6 +20,9 @@ class OfflineFoundry:
     def status(self):
         return {"running": False, "endpoint": None, "error": "not started in tests"}
 
+    def active_device(self, alias):
+        return None
+
     def stop(self):
         pass
 

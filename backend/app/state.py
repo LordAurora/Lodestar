@@ -31,7 +31,7 @@ class AppState:
         self.config = config
         self.db = Database(config.data_dir)
         self.settings = SettingsStore(config.data_dir / "settings.json")
-        self.foundry = foundry or FoundryService()
+        self.foundry = foundry or FoundryService(device=config.device)
         self.llm: LLMClient = llm or FoundryLLM(self.foundry)
         self.index_jobs: dict[str, IndexProgress] = {}
         self._embedder = embedder
