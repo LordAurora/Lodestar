@@ -79,6 +79,61 @@ function ModelStatus({ model }: { model: ModelInfo }) {
   return <Badge variant="warning">{s.notDownloaded}</Badge>;
 }
 
+function RemoteModelCard({
+  host,
+  model,
+  baseUrl,
+}: {
+  host: string;
+  model: string;
+  baseUrl: string;
+}) {
+  const r = s.remote;
+  const check = useMutation({ mutationFn: api.llmCheck });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle icon={Cpu}>{r.title}</CardTitle>
+        <CardDescription>{r.help}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[13px]">
+          <dt className="text-muted">{r.host}</dt>
+          <dd className="truncate font-mono" title={baseUrl}>
+            {host}
+          </dd>
+          <dt className="text-muted">{r.model}</dt>
+          <dd className="truncate font-mono">{model}</dd>
+        </dl>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={check.isPending}
+            onClick={() => check.mutate()}
+          >
+            {check.isPending && <Loader2 className="animate-spin" />}
+            {check.isPending ? r.testing : r.test}
+          </Button>
+          {check.data && (
+            <span
+              role="status"
+              className={check.data.ok ? "text-[13px] text-success" : "text-[13px] text-danger"}
+            >
+              {check.data.ok ? r.reachable : `${r.unreachable} ${check.data.error ?? ""}`}
+            </span>
+          )}
+          {check.error && (
+            <span role="alert" className="text-[13px] text-danger">
+              {(check.error as Error).message}
+            </span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ModelCard({
   settings,
   save,
@@ -211,6 +266,7 @@ function RetrievalCard({
 
 function PrivacyCard() {
   const { data } = useHealth();
+  const remote = data?.llm.remote ?? false;
   const ok = data?.privacy.local_only ?? true;
   return (
     <Card>
@@ -231,11 +287,17 @@ function PrivacyCard() {
             <ShieldAlert className="size-5 shrink-0" />
           )}
           <div>
-            <div className="text-[13px] font-semibold">{s.localOnly}</div>
-            <div className="text-xs">{ok ? s.localOnlyOn : s.localOnlyOff}</div>
+            <div className="text-[13px] font-semibold">{remote ? s.remote.badge : s.localOnly}</div>
+            <div className="text-xs">
+              {remote
+                ? s.remote.privacyOn(data?.llm.host ?? "")
+                : ok
+                  ? s.localOnlyOn
+                  : s.localOnlyOff}
+            </div>
           </div>
         </div>
-        <p className="text-[13px] text-muted">{s.privacyBody}</p>
+        <p className="text-[13px] text-muted">{remote ? s.remote.privacyBody : s.privacyBody}</p>
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[13px]">
           <dt className="text-muted">{s.endpoint}</dt>
           <dd className="truncate font-mono">{data?.foundry.endpoint ?? s.foundryDown}</dd>
@@ -252,6 +314,7 @@ function PrivacyCard() {
 export function SettingsPage() {
   const { setView } = useAppState();
   const { data: settings } = useSettings();
+  const { data: health } = useHealth();
   const qc = useQueryClient();
   const mutation = useMutation({
     mutationFn: api.saveSettings,
@@ -276,7 +339,15 @@ export function SettingsPage() {
         </div>
         {settings ? (
           <>
-            <ModelCard settings={settings} save={mutation.mutate} />
+            {health?.llm.remote ? (
+              <RemoteModelCard
+                host={health.llm.host ?? ""}
+                model={health.chat_model.alias}
+                baseUrl={health.llm.base_url ?? ""}
+              />
+            ) : (
+              <ModelCard settings={settings} save={mutation.mutate} />
+            )}
             <RetrievalCard
               key={`${settings.top_k}:${settings.relevance_threshold}`}
               settings={settings}

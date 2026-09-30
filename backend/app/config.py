@@ -17,8 +17,9 @@ import json
 import threading
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -59,6 +60,19 @@ class Config(BaseSettings):
     # Default Foundry Local chat model alias, used until the user picks one.
     default_chat_model: str = "qwen2.5-coder-1.5b"
 
+    # Bring your own chat model. "foundry" runs the model on this machine. "openai" sends the
+    # question and the retrieved code snippets to any OpenAI-compatible endpoint (a company
+    # gateway, vLLM, Ollama, LM Studio, a hosted API). Embeddings always stay local.
+    llm_provider: str = "foundry"
+    llm_base_url: str = ""
+    llm_api_key: SecretStr = SecretStr("")
+    llm_model: str = ""
+    llm_timeout: float = 120.0
+
+    # Extra hosts the network guard lets through (IPs, CIDR ranges or host names, comma
+    # separated). The host of ``llm_base_url`` is allowed automatically.
+    allowed_hosts: str = ""
+
     # Comment tags collected by the tech debt board, and how similar two comments must be
     # (cosine similarity) to be grouped under one topic.
     debt_tags: str = "TODO,FIXME,HACK,XXX,BUG,NOTE"
@@ -76,6 +90,37 @@ class Config(BaseSettings):
 
     # Indexing limits.
     max_file_bytes: int = 1_000_000
+
+    @model_validator(mode="after")
+    def _check_llm(self) -> Config:
+        if self.llm_provider not in {"foundry", "openai"}:
+            raise ValueError("LODESTAR_LLM_PROVIDER must be 'foundry' or 'openai'.")
+        if self.llm_provider == "openai":
+            if urlparse(self.llm_base_url).scheme not in {"http", "https"}:
+                raise ValueError(
+                    "LODESTAR_LLM_BASE_URL must be an http(s) URL, e.g. https://host/v1"
+                )
+            if not self.llm_model:
+                raise ValueError(
+                    "LODESTAR_LLM_MODEL is required when LODESTAR_LLM_PROVIDER=openai."
+                )
+        return self
+
+    @property
+    def remote_llm(self) -> bool:
+        return self.llm_provider == "openai"
+
+    @property
+    def llm_host(self) -> str | None:
+        return urlparse(self.llm_base_url).hostname if self.remote_llm else None
+
+    @property
+    def guard_allowed_hosts(self) -> list[str]:
+        """Hosts the network guard lets through: the ones listed plus the remote model's."""
+        hosts = [h.strip() for h in self.allowed_hosts.split(",") if h.strip()]
+        if self.llm_host:
+            hosts.append(self.llm_host)
+        return hosts
 
     @property
     def repos_dir(self) -> Path:

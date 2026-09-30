@@ -23,11 +23,11 @@ export function Select({
       <SelectPrimitive.Trigger
         aria-label={label}
         className={cn(
-          "inline-flex h-9 w-full items-center justify-between gap-2 rounded-md border border-border bg-background px-3 text-sm focus-visible:border-border-strong focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-foreground/10",
+          "inline-flex h-9 w-full items-center text-left whitespace-nowrap justify-between gap-2 rounded-md border border-border bg-background px-3 text-sm focus-visible:border-border-strong focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-foreground/10",
           className,
         )}
       >
-        <SelectPrimitive.Value placeholder={placeholder} />
+        <SelectPrimitive.Value placeholder={placeholder} className="min-w-0 truncate" />
         <SelectPrimitive.Icon>
           <ChevronDown className="size-4 text-muted" />
         </SelectPrimitive.Icon>

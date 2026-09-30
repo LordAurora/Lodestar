@@ -12,6 +12,16 @@ export function LocalOnlyBadge() {
   const { data } = useHealth();
   if (!data) return null;
   const ok = data.privacy.local_only;
+  if (data.llm.remote) {
+    return (
+      <Tooltip label={strings.settings.remote.badgeHint(data.llm.host ?? "")}>
+        <Badge variant="warning" role="status" tabIndex={0}>
+          <ShieldAlert />
+          {strings.settings.remote.badge}
+        </Badge>
+      </Tooltip>
+    );
+  }
   return (
     <Tooltip label={ok ? strings.settings.localOnlyOn : strings.settings.localOnlyOff}>
       <Badge variant={ok ? "success" : "warning"} role="status" tabIndex={0}>

@@ -18,6 +18,7 @@ from app.embeddings import Embedder, create_embedder
 from app.foundry import FoundryLLM, FoundryService, LLMClient
 from app.indexer import IndexProgress
 from app.rag import RagPipeline
+from app.remote_llm import RemoteLLM
 from app.retrieval import Retriever
 
 
@@ -33,7 +34,14 @@ class AppState:
         self.db = Database(config.data_dir)
         self.settings = SettingsStore(config.data_dir / "settings.json")
         self.foundry = foundry or FoundryService(device=config.device)
-        self.llm: LLMClient = llm or FoundryLLM(self.foundry)
+        if llm is not None:
+            self.llm: LLMClient = llm
+        elif config.remote_llm:
+            self.llm = RemoteLLM(
+                config.llm_base_url, config.llm_api_key.get_secret_value(), config.llm_timeout
+            )
+        else:
+            self.llm = FoundryLLM(self.foundry)
         self.index_jobs: dict[str, IndexProgress] = {}
         self.debt_jobs: dict[str, dict] = {}  # topic clustering jobs, by repo id
         self.doc_jobs: dict[str, dict] = {}  # docstring generation jobs, by repo id
@@ -88,6 +96,8 @@ class AppState:
         return RagPipeline(self.retriever, self.llm)
 
     def chat_model(self) -> str:
+        if self.config.remote_llm:  # the endpoint's model name comes from the environment
+            return self.config.llm_model
         return self.settings.get().chat_model or self.config.default_chat_model
 
 

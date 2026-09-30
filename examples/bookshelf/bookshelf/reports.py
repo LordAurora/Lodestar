@@ -1,4 +1,4 @@
-"""Reports for librarians: who is late and what is popular."""
+"""Reports for librarians: who is late and who keeps books too long."""
 
 from bookshelf.loans import late_fee
 
@@ -16,15 +16,16 @@ def overdue_report(loans, today):
     return "\n".join(lines)
 
 
-def popular_report(loans, since):
+def long_loans_report(loans, today):
     lines = []
-    total = 0
+    total = 0.0
     for loan in loans:
-        if loan.returned_on is not None and loan.borrowed_on >= since:
-            days = (loan.returned_on - loan.borrowed_on).days
-            total += days
-            lines.append(f"{loan.book_id}: kept {days} days, lent on {loan.borrowed_on}")
-    lines.append(f"total days lent: {total}")
+        if loan.returned_on is None and loan.borrowed_on < today:
+            days = (today - loan.borrowed_on).days
+            fee = late_fee(days)
+            total += fee
+            lines.append(f"{loan.book_id}: {days} days out, fee {fee:.2f}")
+    lines.append(f"total fees: {total:.2f}")
     return "\n".join(lines)
 
 
@@ -35,7 +36,7 @@ def fees_for_user(loans, user_id, today):
 
 def month_summary(loans, today):
     late = overdue_report(loans, today)
-    popular = popular_report(loans, today.replace(day=1))
+    popular = long_loans_report(loans, today.replace(day=1))
     return late + "\n\n" + popular
 
 
