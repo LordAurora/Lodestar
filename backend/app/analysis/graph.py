@@ -95,6 +95,18 @@ class CodeGraph:
         """What this symbol calls, directly and transitively."""
         return self._walk(symbol_id, self._outgoing, depth, max_nodes)
 
+    def edges_between(self, ids: list[int]) -> list[tuple[int, int, int, str]]:
+        """Call edges ``(from, to, line, confidence)`` whose both ends are in ``ids``."""
+        wanted = set(ids)
+        found = []
+        for src in ids:
+            for dst, line, _file, confidence in sorted(
+                self._outgoing.get(src, ()), key=lambda e: (e[2], e[1])
+            ):
+                if dst in wanted and dst != src:
+                    found.append((src, dst, line, confidence))
+        return found
+
     def _walk(self, start: int | list[int], edges, depth: int, max_nodes: int) -> Traversal:
         starts = [start] if isinstance(start, int) else list(start)
         visited = set(starts)

@@ -187,6 +187,38 @@ export interface DebtGroup {
   items: DebtItem[];
 }
 
+export interface DiagramNode {
+  id: string;
+  label: string;
+  path: string | null;
+  line?: number;
+  kind: string;
+}
+
+export interface Diagram {
+  type: "modules" | "flow";
+  style?: "flowchart" | "sequence";
+  mermaid: string;
+  nodes: number;
+  edges: number;
+  truncated: boolean;
+  level?: "file" | "dir";
+  scope?: string;
+  cycles?: string[][];
+  depth?: number;
+  entry?: { id: number; name: string };
+  node_index: DiagramNode[];
+}
+
+export interface DiagramParams {
+  type: "modules" | "flow";
+  scope?: string;
+  symbol_id?: number;
+  endpoint_id?: number;
+  depth?: number;
+  style?: "flowchart" | "sequence";
+}
+
 export interface SymbolHit {
   id: number;
   name: string;
@@ -366,6 +398,10 @@ export const api = {
     request<{ variables: EnvVariable[]; total: number }>(`/repos/${repoId}/env${query({ q })}`),
   envExample: (repoId: string) =>
     request<{ text: string; count: number }>(`/repos/${repoId}/env/example`),
+  diagram: (repoId: string, params: DiagramParams) =>
+    request<Diagram>(`/repos/${repoId}/diagram${query({ ...params })}`),
+  diagramScopes: (repoId: string) =>
+    request<{ folders: string[] }>(`/repos/${repoId}/diagram/scopes`),
   symbols: (repoId: string, q: string, kind = "") =>
     request<{ symbols: SymbolHit[] }>(`/repos/${repoId}/symbols${query({ q, kind, limit: 12 })}`),
   impact: (repoId: string, symbolId: number, depth: number) =>

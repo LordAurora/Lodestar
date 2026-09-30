@@ -8,18 +8,25 @@ export type View = "chat" | "settings" | "add-repo" | "insights";
 export type InsightPage =
   "overview" | "impact" | "diagrams" | "endpoints" | "config" | "docs" | "duplicates" | "debt";
 
+/** Optional starting point for an Insights page, e.g. "draw the flow of this endpoint". */
+export interface InsightParams {
+  endpointId?: number;
+  symbolId?: number;
+}
+
 interface AppState {
   repoId: string | null;
   conversationId: string | null;
   view: View;
   insight: InsightPage;
+  insightParams: InsightParams;
   source: SourceTarget | null;
   sidebarCollapsed: boolean;
   selectRepo: (id: string | null) => void;
   selectConversation: (id: string | null) => void;
   setView: (view: View) => void;
   /** Open the Insights area on a given page. */
-  openInsight: (page: InsightPage) => void;
+  openInsight: (page: InsightPage, params?: InsightParams) => void;
   /** Show an indexed chunk (by id) in the code drawer, or close the drawer with null. */
   openSource: (chunkId: string | null) => void;
   /** Show lines of a file in the code drawer. */
@@ -43,6 +50,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [view, setView] = useState<View>("chat");
   const [insight, setInsight] = useState<InsightPage>("overview");
+  const [insightParams, setInsightParams] = useState<InsightParams>({});
   const [source, setSource] = useState<SourceTarget | null>(null);
   const [sidebarCollapsed, setCollapsed] = useState(
     () => matchMedia("(max-width: 1023px)").matches,
@@ -75,8 +83,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setView("chat");
   }, []);
 
-  const openInsight = useCallback((page: InsightPage) => {
+  const openInsight = useCallback((page: InsightPage, params: InsightParams = {}) => {
     setInsight(page);
+    setInsightParams(params);
     setSource(null);
     setView("insights");
   }, []);
@@ -100,6 +109,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         conversationId,
         view,
         insight,
+        insightParams,
         source,
         sidebarCollapsed,
         selectRepo,

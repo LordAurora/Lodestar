@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowDown, ArrowUp, Download, Route } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, Download, Network, Route } from "lucide-react";
 import { useDeferredValue, useMemo, useState } from "react";
 import { InsightHeader } from "@/components/insights/InsightHeader";
 import { EmptyState, ListSkeleton, NotAnalyzed } from "@/components/insights/InsightStates";
@@ -94,7 +94,7 @@ function SortHeader({
 }
 
 export function EndpointsPage({ repo }: { repo: Repo }) {
-  const { openFile } = useAppState();
+  const { openFile, openInsight } = useAppState();
   const [search, setSearch] = useState("");
   const [method, setMethod] = useState(ALL);
   const [framework, setFramework] = useState(ALL);
@@ -223,6 +223,9 @@ export function EndpointsPage({ repo }: { repo: Repo }) {
                       sort={sort}
                       onSort={onSort}
                     />
+                    <th scope="col" className="py-2.5 pr-6 pl-3">
+                      <span className="sr-only">{strings.insights.diagrams.showFlow}</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -253,8 +256,29 @@ export function EndpointsPage({ repo }: { repo: Repo }) {
                       <td className="px-3 py-2.5 font-mono text-xs text-muted">
                         {e.file_path}:{e.line}
                       </td>
-                      <td className="py-2.5 pr-6 pl-3">
+                      <td className="px-3 py-2.5">
                         <Badge>{e.framework_label}</Badge>
+                      </td>
+                      <td className="py-2.5 pr-6 pl-3 text-right">
+                        <Tooltip
+                          label={
+                            e.handler_symbol_id === null
+                              ? strings.insights.diagrams.inlineHandler
+                              : strings.insights.diagrams.showFlow
+                          }
+                        >
+                          <span>
+                            <Button
+                              variant="subtle"
+                              size="icon-sm"
+                              disabled={e.handler_symbol_id === null}
+                              aria-label={strings.insights.diagrams.showFlowFor(e.path)}
+                              onClick={() => openInsight("diagrams", { endpointId: e.id })}
+                            >
+                              <Network />
+                            </Button>
+                          </span>
+                        </Tooltip>
                       </td>
                     </tr>
                   ))}

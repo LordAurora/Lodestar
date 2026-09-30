@@ -1,7 +1,14 @@
 // TanStack Query hooks: one place that knows how server data is fetched and cached.
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api, watchIndex, type DebtFilters, type EndpointFilters, type IndexProgress } from "./api";
+import {
+  api,
+  watchIndex,
+  type DebtFilters,
+  type DiagramParams,
+  type EndpointFilters,
+  type IndexProgress,
+} from "./api";
 
 /** What the code drawer is showing: an indexed chunk, or a line range of a file. */
 export type SourceTarget =
@@ -76,6 +83,20 @@ export const useEnv = (repoId: string, q: string) =>
 
 export const useEnvExample = (repoId: string) =>
   useQuery({ queryKey: keys.envExample(repoId), queryFn: () => api.envExample(repoId) });
+
+export const useDiagram = (repoId: string, params: DiagramParams | null) =>
+  useQuery({
+    queryKey: ["insights", repoId, "diagram", params] as const,
+    queryFn: () => api.diagram(repoId, params!),
+    enabled: params !== null,
+    retry: false,
+  });
+
+export const useDiagramScopes = (repoId: string) =>
+  useQuery({
+    queryKey: ["insights", repoId, "diagram-scopes"] as const,
+    queryFn: () => api.diagramScopes(repoId),
+  });
 
 export const useSymbols = (repoId: string, q: string) =>
   useQuery({
