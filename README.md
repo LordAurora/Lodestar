@@ -1,5 +1,9 @@
 <div align="center">
 
+<!-- LOGO: save your logo as docs/logo.svg (or .png), then remove the comment markers below.
+<img src="docs/logo.svg" alt="Lodestar logo" width="96" height="96" />
+-->
+
 # Lodestar
 
 **Ask questions about your code base. Get answers with `file:line` citations. Nothing leaves your machine.**
@@ -17,7 +21,7 @@
 
 Lodestar is a **100% local** code-base assistant. Point it at a Git repository on your machine, let it index the code, and ask questions like *"How does authentication work in this project?"*. Answers are grounded in the code and cite their sources.
 
-The language model runs on-device through **Microsoft Foundry Local**. Code, prompts and embeddings never leave the machine: the backend blocks every outbound connection that is not to `localhost`, and the UI loads no fonts, icons or scripts from the internet.
+The language model runs on-device through **Microsoft Foundry Local** by default. Want a bigger model? Point Lodestar at any OpenAI-compatible server you run yourself (Ollama, LM Studio, llama.cpp, vLLM): see [Using a larger model](#using-a-larger-model). Code, prompts and embeddings never leave the machine: the backend blocks every outbound connection that is not to `localhost`, and the UI loads no fonts, icons or scripts from the internet.
 
 Lodestar is the companion project for the tutorial *Building Your First Local RAG Application with Foundry Local*. The RAG pipeline (chunking, embedding, retrieval, prompting) is written by hand, with no LangChain or LlamaIndex, so each step is easy to read.
 
@@ -40,16 +44,34 @@ make run     # open http://127.0.0.1:8000 and add examples/bookshelf
 
 You need [Foundry Local](#prerequisites), Python 3.11+ and Node.js 20+. See [Setup](#setup) for details.
 
-## Screenshots
-
-| Onboarding | Source preview (dark) |
-|---|---|
-| <img src="docs/screenshots/onboarding-light.png" alt="Onboarding screen with repository path input" /> | <img src="docs/screenshots/source-drawer-dark.png" alt="Source drawer showing highlighted lines in dark theme" /> |
-| **Empty chat** | **Settings (dark)** |
-| <img src="docs/screenshots/chat-empty-light.png" alt="Empty chat with suggested questions" /> | <img src="docs/screenshots/settings-dark.png" alt="Settings page with model and retrieval options" /> |
-
----
-
+## Screenshots
+
+**Chat with cited sources**
+
+| Answer with sources (light) | Source preview (dark) |
+|---|---|
+| <img src="docs/screenshots/chat-answer-light.png" alt="An answer with its retrieved sources" /> | <img src="docs/screenshots/source-drawer-dark.png" alt="Source drawer showing highlighted lines in dark theme" /> |
+
+**Insights**
+
+| Impact analysis (light) | Impact analysis (dark) |
+|---|---|
+| <img src="docs/screenshots/insights-impact-light.png" alt="Blast radius, direct callers and affected tests for a function" /> | <img src="docs/screenshots/insights-impact-dark.png" alt="The same impact analysis in the dark theme" /> |
+| **Architecture diagrams (light)** | **Architecture diagrams (dark)** |
+| <img src="docs/screenshots/insights-diagrams-light.png" alt="Module dependency diagram" /> | <img src="docs/screenshots/insights-diagrams-dark.png" alt="Module dependency diagram in the dark theme" /> |
+| **API endpoints (light)** | **API endpoints (dark)** |
+| <img src="docs/screenshots/insights-endpoints-light.png" alt="Catalog of HTTP routes with resolved prefixes" /> | <img src="docs/screenshots/insights-endpoints-dark.png" alt="Catalog of HTTP routes in the dark theme" /> |
+| **Duplicate code (light)** | **Duplicate code (dark)** |
+| <img src="docs/screenshots/insights-duplicates-light.png" alt="A group of duplicated functions with a side-by-side comparison" /> | <img src="docs/screenshots/insights-duplicates-dark.png" alt="Duplicate comparison in the dark theme" /> |
+| **Docstring suggestions (light)** | **Docstring suggestions (dark)** |
+| <img src="docs/screenshots/insights-docs-light.png" alt="Docstring suggestion shown as a diff to review" /> | <img src="docs/screenshots/insights-docs-dark.png" alt="Docstring suggestion diff in the dark theme" /> |
+| **Tech debt (light)** | **Config and environment (dark)** |
+| <img src="docs/screenshots/insights-debt-light.png" alt="TODO and FIXME comments grouped by tag" /> | <img src="docs/screenshots/insights-config-dark.png" alt="Environment variables the code reads" /> |
+
+**Settings**
+
+<img src="docs/screenshots/settings-dark.png" alt="Settings page with model and retrieval options" width="600" />
+
 ## How it works
 
 ```mermaid
@@ -225,6 +247,36 @@ Measured on an RTX 4050 Laptop GPU (6 GB) with a 13th-gen Core i5:
 
 The CPU and GPU builds of the embedding model give slightly different vectors (cosine similarity about 0.97), so the device is part of the embedder's name. Switching device re-indexes your repositories the next time you index them.
 
+### Using a larger model
+
+The chat model is replaceable. If you have a stronger model on your computer (or on a server your company runs), point Lodestar at it. Any server that speaks the OpenAI chat API works: **Ollama**, **LM Studio**, **llama.cpp** (`llama-server`), **vLLM**, or a company gateway. Only the chat model changes. Embeddings and the index always stay on this machine.
+
+Set these in `.env` and restart:
+
+```bash
+# Ollama (default address)
+LODESTAR_LLM_PROVIDER=openai
+LODESTAR_LLM_BASE_URL=http://127.0.0.1:11434/v1
+LODESTAR_LLM_MODEL=llama3.3:70b
+
+# LM Studio: http://127.0.0.1:1234/v1     llama.cpp: http://127.0.0.1:8080/v1     vLLM: http://127.0.0.1:8000/v1
+```
+
+| Variable | Meaning |
+|---|---|
+| `LODESTAR_LLM_PROVIDER` | `foundry` (default) or `openai` (any OpenAI-compatible endpoint). |
+| `LODESTAR_LLM_BASE_URL` | The endpoint, ending in `/v1`. |
+| `LODESTAR_LLM_MODEL` | The model name the server expects. |
+| `LODESTAR_LLM_API_KEY` | Only if the server needs one. Local servers usually do not. |
+| `LODESTAR_LLM_TIMEOUT` | Seconds to wait for a reply (default `120`). |
+| `LODESTAR_ALLOWED_HOSTS` | Extra hosts the network guard may reach, comma separated (IPs, CIDR ranges or names). The host in `LODESTAR_LLM_BASE_URL` is allowed automatically. |
+
+What this means for privacy:
+
+- **A server on the same computer** (`127.0.0.1` or `localhost`) keeps everything local. The "Local only" badge stays green.
+- **A server elsewhere** (a company machine, a hosted API) receives the question and the code snippets retrieved for it, and the Insights summaries and docstring prompts. The badge then says the model is remote, and the network guard opens only that one host. Everything else stays blocked.
+- The Settings page shows where the model runs and has a connection check. A bigger model also gives noticeably better docstring suggestions and impact summaries than the default 1.5B model.
+
 ### Choosing an embedding model
 
 All three options run locally. Measured on a laptop CPU with `examples/bookshelf` (33 chunks):
@@ -296,6 +348,7 @@ examples/           bookshelf sample repo + eval questions
 - Foundry Local's web service is bound to `127.0.0.1`. SDK telemetry is turned off (`disable_nonessential_telemetry=True`).
 - fastembed runs with `HF_HUB_OFFLINE=1`. tree-sitter grammars are downloaded by `make setup`. If one is missing at runtime, the download is blocked and that file falls back to line-window chunking.
 - Fonts (Inter, JetBrains Mono) are bundled with `@fontsource`. Shiki languages and themes are bundled. Answers render no remote images or links.
+- **Bring-your-own model is opt-in.** With `LODESTAR_LLM_PROVIDER=openai`, the guard allows only the host of the configured endpoint (plus `LODESTAR_ALLOWED_HOSTS`). A loopback address changes nothing. A remote address is shown in the UI and the "Local only" badge turns off.
 - **What the guard cannot see.** Foundry Local's native runtime runs outside Python's socket layer. When you ask it to, it downloads models from its catalog (at `make setup`, or when you click *Download* in Settings), and it may fetch the catalog listing. It never receives your code or questions: those only travel to its web service on `127.0.0.1`.
 
 ## Troubleshooting
