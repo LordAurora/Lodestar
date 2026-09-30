@@ -27,6 +27,7 @@ export const INSIGHT_NAV: InsightNavItem[] = [
   { id: "impact", label: n.impact, icon: Radar },
   { id: "diagrams", label: n.diagrams, icon: Network },
   { id: "endpoints", label: n.endpoints, icon: Route },
+  { id: "docs", label: n.docs, icon: FileText },
   { id: "duplicates", label: n.duplicates, icon: Copy },
   { id: "config", label: n.config, icon: KeyRound },
   { id: "debt", label: n.debt, icon: ListChecks },
