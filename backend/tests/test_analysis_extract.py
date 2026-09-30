@@ -69,7 +69,7 @@ def test_python_symbols_calls_and_imports():
     } <= calls(f)
     modules = {(i.module, tuple(i.names), i.alias) for i in f.imports}
     assert ("os.path", (), "p") in modules
-    assert ("..pkg.mod", ("a", "b"), None) in modules
+    assert ("..pkg.mod", ("a", "b as c"), None) in modules  # `b as c` keeps the local name
     assert (".", ("util",), None) in modules
 
 
@@ -124,10 +124,10 @@ def test_javascript_and_typescript(path):
         (None, "Bar", "inherit"),
     } <= calls(f)
     modules = {(i.module, tuple(i.names), i.alias) for i in f.imports}
-    assert ("./mod", ("a", "b"), None) in modules
+    assert ("./mod", ("a", "b as c"), None) in modules
     assert ("../d", ("default",), "D") in modules
     assert ("@/lib/x", ("*",), "lib") in modules
-    assert ("fs", (), None) in modules  # require()
+    assert ("fs", ("default",), "fs") in modules  # `const fs = require("fs")` binds `fs`
     assert not any(c.name == "require" for c in f.calls)
 
 

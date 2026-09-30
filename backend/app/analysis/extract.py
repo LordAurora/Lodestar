@@ -207,9 +207,11 @@ class PythonExtractor(Extractor):
         module = self.text(module_node) if module_node is not None else None
         names = []
         for child in node.children_by_field_name("name"):
-            names.append(
-                self.name_of(child) if child.type == "aliased_import" else self.text(child)
-            )
+            if child.type == "aliased_import":  # `from x import a as b` is stored as "a as b"
+                original, alias = self.name_of(child), self.name_of(child, "alias")
+                names.append(f"{original} as {alias}" if original and alias else original)
+            else:
+                names.append(self.text(child))
         if any(c.type == "wildcard_import" for c in node.named_children):
             names.append("*")
         self.add_import(module, node, [n for n in names if n])
@@ -314,7 +316,8 @@ class JavaScriptExtractor(Extractor):
             args = node.child_by_field_name("arguments")
             arg = args.named_children[0] if args is not None and args.named_children else None
             if arg is not None and arg.type == "string":
-                self.add_import(self.string_value(arg), node)
+                names, alias = self.require_bindings(node)
+                self.add_import(self.string_value(arg), node, names, alias)
                 return enc, cls
         receiver, name = self.receiver_and_name(callee)
         self.add_call(name, node, enc, receiver)
@@ -324,6 +327,27 @@ class JavaScriptExtractor(Extractor):
         receiver, name = self.receiver_and_name(node.child_by_field_name("constructor"))
         self.add_call(name, node, enc, receiver)
         return enc, cls
+
+    def require_bindings(self, call) -> tuple[list[str], str | None]:
+        """Local names of `const x = require("m")` (alias) or `const { a, b: c } = require("m")`."""
+        parent = call.parent
+        if parent is None or parent.type != "variable_declarator":
+            return [], None
+        target = parent.child_by_field_name("name")
+        if target is None:
+            return [], None
+        if target.type == "identifier":
+            return ["default"], self.text(target)
+        names = []
+        if target.type == "object_pattern":
+            for item in target.named_children:
+                if item.type == "shorthand_property_identifier_pattern":
+                    names.append(self.text(item))
+                elif item.type == "pair_pattern":
+                    key, value = self.name_of(item, "key"), self.name_of(item, "value")
+                    if key:
+                        names.append(f"{key} as {value}" if value else key)
+        return names, None
 
     def string_value(self, node) -> str:
         return self.text(node).strip("'\"`")
@@ -346,7 +370,10 @@ class JavaScriptExtractor(Extractor):
                     ident = next((c for c in part.named_children if c.type == "identifier"), None)
                     alias = self.text(ident) if ident is not None else None
                 elif part.type == "named_imports":
-                    names += [n for s in part.named_children if (n := self.name_of(s))]
+                    for spec in part.named_children:  # `{ a as b }` is stored as "a as b"
+                        original, local = self.name_of(spec), self.name_of(spec, "alias")
+                        if original:
+                            names.append(f"{original} as {local}" if local else original)
         if source is not None:
             self.add_import(self.string_value(source), node, names, alias)
         return enc, cls

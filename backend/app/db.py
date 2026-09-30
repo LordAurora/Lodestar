@@ -233,12 +233,75 @@ CREATE TABLE IF NOT EXISTS debt_topic_state (
 );
 """
 
+# HTTP endpoints. The first three tables hold what each file says (and follow that file's
+# lifecycle); `endpoints` is derived from them by following mounts across files.
+ENDPOINT_SCHEMA = """
+CREATE TABLE IF NOT EXISTS endpoint_routes (
+    id        INTEGER PRIMARY KEY,
+    repo_id   TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    method    TEXT NOT NULL,
+    path      TEXT NOT NULL,               -- relative to its owner
+    owner     TEXT,                        -- router variable or controller class
+    line      INTEGER NOT NULL,
+    handler   TEXT,
+    framework TEXT NOT NULL,
+    dynamic   INTEGER NOT NULL DEFAULT 0,
+    file_hash TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_endpoint_routes_file ON endpoint_routes(file_path);
+
+CREATE TABLE IF NOT EXISTS endpoint_routers (
+    id         INTEGER PRIMARY KEY,
+    repo_id    TEXT NOT NULL,
+    file_path  TEXT NOT NULL,
+    var        TEXT NOT NULL,
+    framework  TEXT NOT NULL,
+    prefix     TEXT NOT NULL DEFAULT '',
+    is_root    INTEGER NOT NULL DEFAULT 0,
+    parent_var TEXT,
+    dynamic    INTEGER NOT NULL DEFAULT 0,
+    line       INTEGER NOT NULL DEFAULT 0,
+    file_hash  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_endpoint_routers_file ON endpoint_routers(file_path);
+
+CREATE TABLE IF NOT EXISTS endpoint_includes (
+    id         INTEGER PRIMARY KEY,
+    repo_id    TEXT NOT NULL,
+    file_path  TEXT NOT NULL,
+    parent_var TEXT NOT NULL,
+    target     TEXT NOT NULL,
+    prefix     TEXT NOT NULL DEFAULT '',
+    framework  TEXT NOT NULL,
+    dynamic    INTEGER NOT NULL DEFAULT 0,
+    line       INTEGER NOT NULL,
+    file_hash  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_endpoint_includes_file ON endpoint_includes(file_path);
+
+CREATE TABLE IF NOT EXISTS endpoints (
+    id                INTEGER PRIMARY KEY,
+    repo_id           TEXT NOT NULL,
+    method            TEXT NOT NULL,
+    path              TEXT NOT NULL,       -- the full path, when it could be resolved
+    handler_symbol_id INTEGER,
+    handler_name      TEXT,
+    file_path         TEXT NOT NULL,
+    line              INTEGER NOT NULL,
+    framework         TEXT NOT NULL,
+    is_partial        INTEGER NOT NULL DEFAULT 0,
+    file_hash         TEXT NOT NULL
+);
+"""
+
 # (version, SQL). Versions only ever grow, and every script must be safe to run twice.
 MIGRATIONS: list[tuple[int, str]] = [
     (1, REPO_SCHEMA),
     (2, ANALYSIS_SCHEMA),
     (3, ENV_SCHEMA),
     (4, DEBT_SCHEMA),
+    (5, ENDPOINT_SCHEMA),
 ]
 LATEST_VERSION = MIGRATIONS[-1][0]
 
