@@ -67,10 +67,13 @@ function ModelStatus({ model }: { model: ModelInfo }) {
   if (model.job?.state === "error") return <Badge variant="danger">{model.job.error}</Badge>;
   if (model.loaded)
     return (
-      <Badge variant="success">
-        <Dot />
-        {s.loaded}
-      </Badge>
+      <span className="flex items-center gap-2">
+        <Badge variant="success">
+          <Dot />
+          {s.loaded}
+        </Badge>
+        <Badge title={s.device(model.device)}>{model.device}</Badge>
+      </span>
     );
   if (model.cached) return <Badge>{s.cached}</Badge>;
   return <Badge variant="warning">{s.notDownloaded}</Badge>;

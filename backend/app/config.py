@@ -52,6 +52,10 @@ class Config(BaseSettings):
     # not to a loopback address (see app/privacy.py).
     block_external_network: bool = True
 
+    # Where models run: "auto" uses the GPU when its execution provider is installed,
+    # "gpu" insists on it, "cpu" never uses it.
+    device: str = "auto"
+
     # Default Foundry Local chat model alias, used until the user picks one.
     default_chat_model: str = "qwen2.5-coder-1.5b"
 

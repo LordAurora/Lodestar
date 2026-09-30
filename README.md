@@ -151,6 +151,7 @@ Copy `.env.example` to `.env`. Every setting is an environment variable with the
 | `LODESTAR_DEFAULT_CHAT_MODEL` | `qwen2.5-coder-1.5b` | Used until a model is picked in Settings. |
 | `LODESTAR_EMBEDDING_BATCH_SIZE` | `32` | Chunks per embedding call. |
 | `LODESTAR_BLOCK_EXTERNAL_NETWORK` | `true` | Block non-loopback sockets in the backend. |
+| `LODESTAR_DEVICE` | `auto` | `auto` uses the GPU when its execution provider is installed, `gpu` insists on it, `cpu` never uses it. |
 | `LODESTAR_OFFLINE` | `true` | Stop fastembed from contacting Hugging Face. |
 | `LODESTAR_MAX_FILE_BYTES` | `1000000` | Larger files are skipped. |
 | `LODESTAR_DATA_DIR` | `backend/data` | SQLite files, `settings.json`, fastembed cache. |
@@ -158,13 +159,28 @@ Copy `.env.example` to `.env`. Every setting is an environment variable with the
 
 Top-K, relevance threshold, hybrid search and the chat model are changed at runtime on the **Settings** page and saved to `data/settings.json`.
 
+### GPU acceleration
+
+`make setup` also installs Foundry Local's small **WebGPU** execution provider (about 28 MB) and downloads the GPU builds of the models. WebGPU runs on any DirectX 12, Vulkan or Metal GPU (NVIDIA, AMD, Intel), so no CUDA install is needed. Lodestar picks the GPU build automatically, falls back to the CPU build if it cannot be loaded (for example, not enough video memory), and shows the device in the sidebar and in Settings. Use `python scripts/setup_models.py --no-gpu` or `LODESTAR_DEVICE=cpu` to stay on the CPU.
+
+Measured on an RTX 4050 Laptop GPU (6 GB) with a 13th-gen Core i5:
+
+| | CPU | GPU (WebGPU) |
+|---|---|---|
+| Chat, qwen2.5-coder-1.5b | 6 tokens/s | 86 tokens/s |
+| Embedding, qwen3-embedding-0.6b | 2.1 s/chunk | 0.25 s/chunk |
+| Indexing `examples/bookshelf` | 36 s | 6 s |
+| A warm question and answer | 20–60 s | about 2.4 s |
+
+The CPU and GPU builds of the embedding model give slightly different vectors (cosine similarity about 0.97), so the device is part of the embedder's name. Switching device re-indexes your repositories the next time you index them.
+
 ### Choosing an embedding model
 
 All three options run locally. Measured on a laptop CPU with `examples/bookshelf` (33 chunks):
 
 | Embedder | Index time | Vector-only MRR | Notes |
 |---|---|---|---|
-| `foundry:qwen3-embedding-0.6b` (default) | 36 s (~1.1 s/chunk) | 1.000 | Same runtime as the chat model. Best vector ranking, but slowest. |
+| `foundry:qwen3-embedding-0.6b` (default, CPU) | 36 s (~1.1 s/chunk) | 1.000 | Same runtime as the chat model. Best vector ranking, but slowest. About 6x faster on a GPU (see above). |
 | `fastembed:jinaai/jina-embeddings-v2-base-code` | 11 s | 0.889 | Code-aware ONNX model. |
 | `fastembed:BAAI/bge-small-en-v1.5` | 3 s | 0.958 | Smallest and fastest. |
 

@@ -59,8 +59,8 @@ export interface Message {
 
 export interface Health {
   status: string;
-  foundry: { running: boolean; endpoint: string | null; error: string | null };
-  chat_model: { alias: string; ready: boolean };
+  foundry: { running: boolean; endpoint: string | null; error: string | null; gpu: boolean };
+  chat_model: { alias: string; ready: boolean; device: "GPU" | "CPU" | null };
   embedder: { name: string | null; loaded: boolean; error: string | null };
   privacy: {
     guard_enabled: boolean;
@@ -86,6 +86,7 @@ export interface ModelInfo {
   size_mb: number | null;
   cached: boolean;
   loaded: boolean;
+  device: "GPU" | "CPU";
   job: ModelJob | null;
 }
 
