@@ -27,6 +27,7 @@ from app.routes import (
     chat,
     debt,
     diagrams,
+    docs,
     duplicates,
     endpoints,
     impact,
@@ -75,6 +76,7 @@ def create_app(state: AppState | None = None, warm_up: bool = True) -> FastAPI:
     app.include_router(impact.router)
     app.include_router(diagrams.router)
     app.include_router(duplicates.router)
+    app.include_router(docs.router)
 
     if FRONTEND_DIST.is_dir():
         app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")

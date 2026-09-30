@@ -71,6 +71,9 @@ class Config(BaseSettings):
     duplicate_min_lines: int = 5
     duplicate_block_size: int = 512
 
+    # Docstring suggester: the Python docstring style (google, numpy or rest).
+    docstring_style: str = "google"
+
     # Indexing limits.
     max_file_bytes: int = 1_000_000
 
