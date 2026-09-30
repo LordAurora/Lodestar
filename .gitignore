@@ -19,3 +19,6 @@ frontend/dist/
 .vscode/
 .idea/
 .DS_Store
+
+# Local notes
+Lodestar-prompt.md
