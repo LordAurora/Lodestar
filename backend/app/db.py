@@ -178,10 +178,32 @@ CREATE TABLE IF NOT EXISTS analysis_state (
 );
 """
 
+# Environment variables read by the code. Defaults of secret-looking names are never stored.
+ENV_SCHEMA = """
+CREATE TABLE IF NOT EXISTS env_vars (
+    id            INTEGER PRIMARY KEY,
+    repo_id       TEXT NOT NULL,
+    name          TEXT NOT NULL,
+    file_path     TEXT NOT NULL,
+    line          INTEGER NOT NULL,
+    language      TEXT NOT NULL,
+    default_value TEXT,                    -- literal default; NULL for secrets or computed ones
+    has_default   INTEGER NOT NULL DEFAULT 0,
+    required      INTEGER NOT NULL DEFAULT 1,
+    is_secret     INTEGER NOT NULL DEFAULT 0,
+    source        TEXT NOT NULL DEFAULT 'code',   -- code | pydantic
+    symbol_id     INTEGER,
+    file_hash     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_env_name ON env_vars(name);
+CREATE INDEX IF NOT EXISTS idx_env_file ON env_vars(file_path);
+"""
+
 # (version, SQL). Versions only ever grow, and every script must be safe to run twice.
 MIGRATIONS: list[tuple[int, str]] = [
     (1, REPO_SCHEMA),
     (2, ANALYSIS_SCHEMA),
+    (3, ENV_SCHEMA),
 ]
 LATEST_VERSION = MIGRATIONS[-1][0]
 
