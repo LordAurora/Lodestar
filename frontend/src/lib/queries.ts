@@ -6,6 +6,7 @@ import {
   watchIndex,
   type DebtFilters,
   type DiagramParams,
+  type MissingDocsParams,
   type DuplicateParams,
   type EndpointFilters,
   type IndexProgress,
@@ -84,6 +85,34 @@ export const useEnv = (repoId: string, q: string) =>
 
 export const useEnvExample = (repoId: string) =>
   useQuery({ queryKey: keys.envExample(repoId), queryFn: () => api.envExample(repoId) });
+
+export const useMissingDocs = (repoId: string, params: MissingDocsParams) =>
+  useQuery({
+    queryKey: ["insights", repoId, "docs-missing", params] as const,
+    queryFn: () => api.missingDocs(repoId, params),
+    placeholderData: (previous) => previous,
+  });
+
+export const useDocSuggestions = (repoId: string) =>
+  useQuery({
+    queryKey: ["insights", repoId, "docs-suggestions"] as const,
+    queryFn: () => api.docSuggestions(repoId),
+  });
+
+/** The generation job; polls every second while it runs. */
+export const useDocJob = (repoId: string) =>
+  useQuery({
+    queryKey: ["insights", repoId, "docs-job"] as const,
+    queryFn: () => api.docJob(repoId),
+    refetchInterval: (q) => (q.state.data?.status === "running" ? 1000 : false),
+  });
+
+export const useDocDiff = (repoId: string, id: number, enabled: boolean) =>
+  useQuery({
+    queryKey: ["insights", repoId, "docs-diff", id] as const,
+    queryFn: () => api.docDiff(repoId, id),
+    enabled,
+  });
 
 export const useDuplicates = (repoId: string, params: DuplicateParams) =>
   useQuery({

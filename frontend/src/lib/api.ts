@@ -270,6 +270,70 @@ export interface DuplicateDiff {
   ratio: number;
 }
 
+export interface MissingDoc {
+  symbol_id: number;
+  qualified_name: string;
+  kind: string;
+  language: string;
+  file_path: string;
+  start_line: number;
+  lines: number;
+  signature: string | null;
+  callers: number;
+  suggestion: "pending" | "failed" | null;
+}
+
+export interface MissingDocs {
+  items: MissingDoc[];
+  total: number;
+  languages: Record<string, number>;
+}
+
+export interface MissingDocsParams {
+  lang?: string;
+  min_lines?: number;
+  q?: string;
+  include_tests?: boolean;
+}
+
+export type SuggestionStatus = "pending" | "accepted" | "rejected" | "failed";
+
+export interface DocSuggestion {
+  id: number;
+  symbol_id: number | null;
+  file_path: string;
+  qualified_name: string;
+  kind: string;
+  language: string;
+  start_line: number;
+  proposed_text: string;
+  style: string;
+  status: SuggestionStatus;
+  error: string | null;
+  created_at: number;
+}
+
+export interface DocJob {
+  status: "idle" | "running" | "done" | "error";
+  total: number;
+  done: number;
+  failed: number;
+  current?: string | null;
+  error?: string | null;
+}
+
+export interface DocDiff {
+  diff: string;
+  stale: boolean;
+  error: string | null;
+}
+
+export interface AcceptResult {
+  results: { id: number; status: "accepted" | "error"; error: string | null }[];
+  files: number;
+  reindexed: boolean;
+}
+
 export interface SymbolHit {
   id: number;
   name: string;
@@ -451,6 +515,29 @@ export const api = {
     request<{ variables: EnvVariable[]; total: number }>(`/repos/${repoId}/env${query({ q })}`),
   envExample: (repoId: string) =>
     request<{ text: string; count: number }>(`/repos/${repoId}/env/example`),
+  missingDocs: (repoId: string, params: MissingDocsParams) =>
+    request<MissingDocs>(`/repos/${repoId}/docs/missing${query({ ...params })}`),
+  suggestDocs: (repoId: string, symbolIds: number[]) =>
+    request<DocJob>(`/repos/${repoId}/docs/suggest`, {
+      method: "POST",
+      body: json({ symbol_ids: symbolIds }),
+    }),
+  docJob: (repoId: string) => request<DocJob>(`/repos/${repoId}/docs/job`),
+  docSuggestions: (repoId: string) =>
+    request<{ items: DocSuggestion[]; style: string }>(`/repos/${repoId}/docs/suggestions`),
+  docDiff: (repoId: string, id: number) =>
+    request<DocDiff>(`/repos/${repoId}/docs/suggestions/${id}/diff`),
+  acceptDoc: (repoId: string, id: number) =>
+    request<AcceptResult>(`/repos/${repoId}/docs/suggestions/${id}/accept`, { method: "POST" }),
+  acceptDocs: (repoId: string, ids: number[]) =>
+    request<AcceptResult>(`/repos/${repoId}/docs/accept`, {
+      method: "POST",
+      body: json({ ids }),
+    }),
+  rejectDoc: (repoId: string, id: number) =>
+    request<unknown>(`/repos/${repoId}/docs/suggestions/${id}/reject`, { method: "POST" }),
+  regenerateDoc: (repoId: string, id: number) =>
+    request<DocJob>(`/repos/${repoId}/docs/suggestions/${id}/regenerate`, { method: "POST" }),
   duplicates: (repoId: string, params: DuplicateParams) =>
     request<DuplicateList>(`/repos/${repoId}/duplicates${query({ ...params })}`),
   duplicateGroup: (repoId: string, groupId: number) =>
