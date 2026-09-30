@@ -1,7 +1,12 @@
 // TanStack Query hooks: one place that knows how server data is fetched and cached.
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api, watchIndex, type IndexProgress } from "./api";
+import { api, watchIndex, type DebtFilters, type IndexProgress } from "./api";
+
+/** What the code drawer is showing: an indexed chunk, or a line range of a file. */
+export type SourceTarget =
+  | { kind: "chunk"; id: string }
+  | { kind: "file"; repoId: string; path: string; start: number; end: number };
 
 export const keys = {
   health: ["health"] as const,
@@ -11,6 +16,12 @@ export const keys = {
   models: ["models"] as const,
   settings: ["settings"] as const,
   chunk: (id: string) => ["chunk", id] as const,
+  // Everything under "insights" is invalidated together after an analysis run.
+  insights: ["insights"] as const,
+  insightsStatus: (repoId: string) => ["insights", repoId, "status"] as const,
+  env: (repoId: string, q: string) => ["insights", repoId, "env", q] as const,
+  envExample: (repoId: string) => ["insights", repoId, "env-example"] as const,
+  debt: (repoId: string, filters: DebtFilters) => ["insights", repoId, "debt", filters] as const,
 };
 
 export const useHealth = () =>
@@ -41,8 +52,37 @@ export const useModels = () =>
     retry: false,
   });
 
-export const useChunk = (id: string | null) =>
-  useQuery({ queryKey: keys.chunk(id ?? ""), queryFn: () => api.chunk(id!), enabled: !!id });
+export const useSourcePreview = (target: SourceTarget | null) =>
+  useQuery({
+    queryKey: ["source", target] as const,
+    queryFn: () =>
+      target!.kind === "chunk"
+        ? api.chunk(target!.id)
+        : api.file(target!.repoId, target!.path, target!.start, target!.end),
+    enabled: !!target,
+  });
+
+export const useInsightsStatus = (repoId: string | null) =>
+  useQuery({
+    queryKey: keys.insightsStatus(repoId ?? ""),
+    queryFn: () => api.insightsStatus(repoId!),
+    enabled: !!repoId,
+  });
+
+export const useEnv = (repoId: string, q: string) =>
+  useQuery({ queryKey: keys.env(repoId, q), queryFn: () => api.env(repoId, q) });
+
+export const useEnvExample = (repoId: string) =>
+  useQuery({ queryKey: keys.envExample(repoId), queryFn: () => api.envExample(repoId) });
+
+/** The tech debt board. While topics are being computed it polls until they are ready. */
+export const useDebt = (repoId: string, filters: DebtFilters) =>
+  useQuery({
+    queryKey: keys.debt(repoId, filters),
+    queryFn: () => api.debt(repoId, filters),
+    placeholderData: (previous) => previous, // no flicker while typing in the search box
+    refetchInterval: (q) => (q.state.data?.topics_pending ? 1500 : false),
+  });
 
 /** Live indexing progress for a repo while `active` is true (Server-Sent Events). */
 export function useIndexProgress(repoId: string | null, active: boolean, onFinish: () => void) {

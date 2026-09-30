@@ -8,7 +8,7 @@ import { toast } from "@/components/ui/toaster";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useAppState } from "@/lib/app-state";
 import { highlightLines } from "@/lib/highlight";
-import { useChunk } from "@/lib/queries";
+import { useSourcePreview } from "@/lib/queries";
 import { strings } from "@/lib/strings";
 import { cn } from "@/lib/utils";
 
@@ -16,8 +16,8 @@ const s = strings.source;
 
 /** Right-hand drawer: the cited code with its line range highlighted. */
 export function SourceDrawer() {
-  const { sourceId, openSource } = useAppState();
-  const { data, isLoading, error } = useChunk(sourceId);
+  const { source, openSource } = useAppState();
+  const { data, isLoading, error } = useSourcePreview(source);
   const [highlighted, setHighlighted] = useState<{ for: unknown; lines: string[] | null }>();
   const html = highlighted && highlighted.for === data ? highlighted.lines : null;
   const firstMarked = useRef<HTMLDivElement>(null);
@@ -40,7 +40,7 @@ export function SourceDrawer() {
   const chunk = data?.chunk;
   return (
     <Sheet
-      open={!!sourceId}
+      open={!!source}
       onOpenChange={(o) => !o && openSource(null)}
       title={s.title}
       description={chunk?.file_path}

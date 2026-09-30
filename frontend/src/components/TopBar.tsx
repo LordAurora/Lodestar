@@ -1,4 +1,4 @@
-import { ChevronRight, FolderGit2, MessagesSquare, RefreshCw } from "lucide-react";
+import { ChevronRight, FolderGit2, MessagesSquare, RefreshCw, type LucideIcon } from "lucide-react";
 import { LocalOnlyBadge } from "@/components/RuntimeStatus";
 import { Badge, Dot } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,16 +8,21 @@ import { timeAgo } from "@/lib/utils";
 
 const s = strings.topbar;
 
-/** Breadcrumb (repo / Chat), index status, privacy badge and the Re-index action. */
+/** Breadcrumb (repo / section), index status, privacy badge and the Re-index action. */
 export function TopBar({
   repo,
   indexing,
   onReindex,
+  section,
 }: {
   repo: Repo;
   indexing: boolean;
   onReindex: () => void;
+  /** The page shown below; Chat when omitted. Insights pages render their own heading. */
+  section?: { label: string; icon: LucideIcon };
 }) {
+  const Section = section?.icon ?? MessagesSquare;
+  const Heading = section ? "span" : "h1";
   const status = indexing ? (
     <Badge variant="accent">
       <Dot className="animate-pulse" />
@@ -43,10 +48,10 @@ export function TopBar({
           <span className="truncate">{repo.name}</span>
         </span>
         <ChevronRight className="size-3.5 shrink-0 text-border-strong" aria-hidden />
-        <h1 className="flex items-center gap-2 font-medium">
-          <MessagesSquare className="size-4 shrink-0" />
-          {s.chat}
-        </h1>
+        <Heading className="flex items-center gap-2 font-medium" aria-current="page">
+          <Section className="size-4 shrink-0" />
+          {section?.label ?? s.chat}
+        </Heading>
       </nav>
       <div className="hidden md:block">{status}</div>
       <div className="ml-auto flex items-center gap-2">

@@ -5,8 +5,8 @@ import { useAppState } from "@/lib/app-state";
 import { cn } from "@/lib/utils";
 
 export function SourceRow({ source, n, note }: { source: Source; n?: number; note?: string }) {
-  const { openSource, sourceId } = useAppState();
-  const active = sourceId === source.chunk_id;
+  const { openSource, source: shown } = useAppState();
+  const active = shown?.kind === "chunk" && shown.id === source.chunk_id;
   return (
     <li>
       <button

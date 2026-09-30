@@ -9,9 +9,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toaster";
 import { api, type Repo } from "@/lib/api";
 import { useAppState } from "@/lib/app-state";
+import { INSIGHT_NAV } from "@/lib/insights-nav";
 import { keys, useIndexProgress, useRepos } from "@/lib/queries";
 import { strings } from "@/lib/strings";
 import { ChatPage } from "@/pages/ChatPage";
+import { InsightsPage } from "@/pages/InsightsPage";
 
 // The Settings page is not needed on first paint: load it on demand.
 const SettingsPage = lazy(() =>
@@ -25,9 +27,11 @@ function RepoWorkspace({ repo }: { repo: Repo }) {
   const [showSummary, setShowSummary] = useState(false);
   const watching = started || repo.indexing;
 
+  const { view, insight } = useAppState();
   const progress = useIndexProgress(repo.id, watching, () => {
     setWatching(false);
     qc.invalidateQueries({ queryKey: keys.repos });
+    qc.invalidateQueries({ queryKey: keys.insights }); // indexing re-runs the analysis too
   });
 
   const start = useMutation({
@@ -57,7 +61,12 @@ function RepoWorkspace({ repo }: { repo: Repo }) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <TopBar repo={repo} indexing={indexing} onReindex={() => start.mutate()} />
+      <TopBar
+        repo={repo}
+        indexing={indexing}
+        onReindex={() => start.mutate()}
+        section={view === "insights" ? INSIGHT_NAV.find((i) => i.id === insight) : undefined}
+      />
       {showCard ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <IndexingCard
@@ -66,6 +75,8 @@ function RepoWorkspace({ repo }: { repo: Repo }) {
             onDone={() => setShowSummary(false)}
           />
         </div>
+      ) : view === "insights" ? (
+        <InsightsPage repo={repo} />
       ) : (
         <ChatPage repo={repo} />
       )}

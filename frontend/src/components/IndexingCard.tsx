@@ -29,20 +29,33 @@ export function IndexingCard({
   const failed = status === "error";
   const done = status === "done";
 
-  // Scanning is quick; the embedding phase dominates, so weight it 80%.
+  // Scanning is quick and embedding dominates; the Insights analysis is the last 10%.
   const scanPct = progress?.files_total ? progress.files_scanned / progress.files_total : 0;
   const embedPct = progress?.chunks_created
     ? progress.chunks_embedded / progress.chunks_created
     : 0;
-  const pct = done ? 100 : Math.round(status === "embedding" ? 20 + embedPct * 80 : scanPct * 20);
+  const analysisPct = progress?.analysis_total
+    ? progress.analysis_done / progress.analysis_total
+    : 0;
+  const pct = done
+    ? 100
+    : Math.round(
+        status === "analyzing"
+          ? 90 + analysisPct * 10
+          : status === "embedding"
+            ? 20 + embedPct * 70
+            : scanPct * 20,
+      );
 
   const title = failed
     ? s.failed
     : done
       ? s.done
-      : status === "embedding"
-        ? s.embedding
-        : s.scanning;
+      : status === "analyzing"
+        ? s.analyzing
+        : status === "embedding"
+          ? s.embedding
+          : s.scanning;
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
