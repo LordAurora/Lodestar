@@ -31,7 +31,8 @@ from app.embeddings import Embedder
 from app.retrieval import tokenize_for_search
 
 SKIP_DIRS = {
-    ".git", ".hg", ".svn", "node_modules", "dist", "build", "out", "target", "bin", "obj",
+    ".git", ".hg", ".svn", ".lodestar-backup",
+    "node_modules", "dist", "build", "out", "target", "bin", "obj",
     "venv", ".venv", "env", "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache",
     ".tox", ".next", ".nuxt", ".svelte-kit", ".idea", ".vscode", "coverage", ".gradle",
 }  # fmt: skip

@@ -36,6 +36,7 @@ class AppState:
         self.llm: LLMClient = llm or FoundryLLM(self.foundry)
         self.index_jobs: dict[str, IndexProgress] = {}
         self.debt_jobs: dict[str, dict] = {}  # topic clustering jobs, by repo id
+        self.doc_jobs: dict[str, dict] = {}  # docstring generation jobs, by repo id
         self._embedder = embedder
         self._embedder_error: str | None = None
         self._retriever: Retriever | None = None

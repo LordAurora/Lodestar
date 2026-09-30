@@ -338,6 +338,29 @@ CREATE TABLE IF NOT EXISTS duplicate_members (
 );
 """
 
+# Docstring suggestions are user data (a review queue), not derived from the code: they are
+# never rebuilt by an analysis run. They remember the file and symbol by name because symbol ids
+# change whenever a file is re-analysed.
+DOCS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS doc_suggestions (
+    id                     INTEGER PRIMARY KEY,
+    symbol_id              INTEGER,
+    file_path              TEXT NOT NULL,
+    qualified_name         TEXT NOT NULL,
+    kind                   TEXT NOT NULL,
+    language               TEXT NOT NULL,
+    start_line             INTEGER NOT NULL,
+    proposed_text          TEXT NOT NULL DEFAULT '',   -- plain comment lines, no delimiters
+    style                  TEXT NOT NULL DEFAULT 'google',
+    status                 TEXT NOT NULL,              -- pending | accepted | rejected | failed
+    error                  TEXT,
+    created_at             REAL NOT NULL,
+    file_hash_at_suggestion TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_doc_suggestions_status ON doc_suggestions(status);
+CREATE INDEX IF NOT EXISTS idx_doc_suggestions_file ON doc_suggestions(file_path);
+"""
+
 # (version, SQL). Versions only ever grow, and every script must be safe to run twice.
 MIGRATIONS: list[tuple[int, str]] = [
     (1, REPO_SCHEMA),
@@ -346,6 +369,7 @@ MIGRATIONS: list[tuple[int, str]] = [
     (4, DEBT_SCHEMA),
     (5, ENDPOINT_SCHEMA),
     (6, DUPLICATE_SCHEMA),
+    (7, DOCS_SCHEMA),
 ]
 LATEST_VERSION = MIGRATIONS[-1][0]
 
