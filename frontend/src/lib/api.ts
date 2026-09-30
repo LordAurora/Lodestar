@@ -60,8 +60,12 @@ export interface Message {
 export interface Health {
   status: string;
   foundry: { running: boolean; endpoint: string | null; error: string | null; gpu: boolean };
-  chat_model: { alias: string; ready: boolean; device: "GPU" | "CPU" | "Remote" | null };
-  llm: {
+  chat_model: {
+    alias: string;
+    ready: boolean;
+    device: "GPU" | "CPU" | "Remote" | "Local server" | null;
+  };
+  llm?: {
     provider: "foundry" | "openai";
     remote: boolean;
     host: string | null;

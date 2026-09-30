@@ -266,7 +266,7 @@ function RetrievalCard({
 
 function PrivacyCard() {
   const { data } = useHealth();
-  const remote = data?.llm.remote ?? false;
+  const remote = data?.llm?.remote ?? false;
   const ok = data?.privacy.local_only ?? true;
   return (
     <Card>
@@ -290,7 +290,7 @@ function PrivacyCard() {
             <div className="text-[13px] font-semibold">{remote ? s.remote.badge : s.localOnly}</div>
             <div className="text-xs">
               {remote
-                ? s.remote.privacyOn(data?.llm.host ?? "")
+                ? s.remote.privacyOn(data?.llm?.host ?? "")
                 : ok
                   ? s.localOnlyOn
                   : s.localOnlyOff}
@@ -339,11 +339,11 @@ export function SettingsPage() {
         </div>
         {settings ? (
           <>
-            {health?.llm.remote ? (
+            {health?.llm?.remote ? (
               <RemoteModelCard
-                host={health.llm.host ?? ""}
+                host={health.llm?.host ?? ""}
                 model={health.chat_model.alias}
-                baseUrl={health.llm.base_url ?? ""}
+                baseUrl={health.llm?.base_url ?? ""}
               />
             ) : (
               <ModelCard settings={settings} save={mutation.mutate} />
