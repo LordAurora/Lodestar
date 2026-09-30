@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from app.chunking import detect_language
-from app.indexer import IndexProgress, index_repository
+from app.indexer import RUNNING_STATUSES, IndexProgress, index_repository
 from app.state import AppState, get_state
 
 router = APIRouter(prefix="/api")
@@ -30,7 +30,7 @@ def _repo_or_404(state: AppState, repo_id: str) -> dict:
 
 def _with_job(state: AppState, repo: dict) -> dict:
     job = state.index_jobs.get(repo["id"])
-    repo["indexing"] = job is not None and job.status in ("pending", "scanning", "embedding")
+    repo["indexing"] = job is not None and job.status in RUNNING_STATUSES
     repo["last_error"] = job.error if job else None
     return repo
 
@@ -60,7 +60,7 @@ async def list_repos(state: AppState = Depends(get_state)) -> list[dict]:
 async def delete_repo(repo_id: str, state: AppState = Depends(get_state)) -> None:
     _repo_or_404(state, repo_id)
     job = state.index_jobs.get(repo_id)
-    if job and job.status in ("scanning", "embedding"):
+    if job and job.status in RUNNING_STATUSES:
         raise HTTPException(409, "This repository is being indexed. Wait for it to finish.")
     state.invalidate_vectors(repo_id)
     state.index_jobs.pop(repo_id, None)
@@ -73,7 +73,7 @@ async def start_index(repo_id: str, state: AppState = Depends(get_state)) -> dic
     if not Path(repo["path"]).is_dir():
         raise HTTPException(422, f"The folder {repo['path']} no longer exists.")
     job = state.index_jobs.get(repo_id)
-    if job and job.status in ("pending", "scanning", "embedding"):
+    if job and job.status in RUNNING_STATUSES:
         return {"job_id": repo_id, "status": job.status}
 
     progress = IndexProgress()

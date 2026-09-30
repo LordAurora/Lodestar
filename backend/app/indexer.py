@@ -23,6 +23,8 @@ from pathlib import Path
 import numpy as np
 import pathspec
 
+from app.analysis.pipeline import run_analysis
+from app.analysis.registry import default_analyzers
 from app.chunking import Chunk, chunk_file, detect_language
 from app.db import Database
 from app.embeddings import Embedder
@@ -45,17 +47,23 @@ BINARY_EXTENSIONS = {
 }  # fmt: skip
 
 
+RUNNING_STATUSES = ("pending", "scanning", "embedding", "analyzing")
+
+
 @dataclass
 class IndexProgress:
     """Live counters, read by the SSE endpoint while indexing runs."""
 
-    status: str = "pending"  # pending | scanning | embedding | done | error
+    status: str = "pending"  # pending | scanning | embedding | analyzing | done | error
     files_total: int = 0
     files_scanned: int = 0
     files_changed: int = 0
     files_deleted: int = 0
     chunks_created: int = 0
     chunks_embedded: int = 0
+    analysis_total: int = 0  # files the Insights analyzers still had to process
+    analysis_done: int = 0
+    analysis_error: str | None = None
     started_at: float = field(default_factory=time.time)
     finished_at: float | None = None
     error: str | None = None
@@ -218,6 +226,28 @@ def _run(db, repo_id, root, embedder, progress, batch_size, max_bytes) -> None:
             [(p, h, lang, time.time()) for p, h, lang in changed_files],
         )
     db.update_repo_stats(repo_id, embedder.name)
+
+    # 5. Insights: symbols, calls and imports. The index is already usable at this
+    #    point, so a failure here is reported but does not fail the whole run.
+    progress.status = "analyzing"
+    try:
+        run_analysis(db, repo_id, root, default_analyzers(), progress)
+    except Exception as exc:
+        progress.analysis_error = str(exc)
+
+
+def analyze_repository(
+    db: Database, repo_id: str, root: Path, progress: IndexProgress, force: bool = True
+) -> IndexProgress:
+    """Run only the Insights analysis ("Re-analyze"). ``force`` redoes every file."""
+    try:
+        progress.status = "analyzing"
+        run_analysis(db, repo_id, root, default_analyzers(), progress, force=force)
+        progress.status = "done"
+    except Exception as exc:
+        progress.status, progress.error = "error", str(exc)
+    progress.finished_at = time.time()
+    return progress
 
 
 def _delete_file(conn, path: str) -> None:
