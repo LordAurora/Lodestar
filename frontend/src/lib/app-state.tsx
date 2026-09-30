@@ -2,19 +2,28 @@
 // selected, which page is showing, and which source is open in the drawer.
 // Server data lives in TanStack Query (see ./queries.ts), not here.
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import type { SourceTarget } from "./queries";
 
-type View = "chat" | "settings" | "add-repo";
+export type View = "chat" | "settings" | "add-repo" | "insights";
+export type InsightPage =
+  "overview" | "impact" | "diagrams" | "endpoints" | "config" | "docs" | "duplicates" | "debt";
 
 interface AppState {
   repoId: string | null;
   conversationId: string | null;
   view: View;
-  sourceId: string | null;
+  insight: InsightPage;
+  source: SourceTarget | null;
   sidebarCollapsed: boolean;
   selectRepo: (id: string | null) => void;
   selectConversation: (id: string | null) => void;
   setView: (view: View) => void;
+  /** Open the Insights area on a given page. */
+  openInsight: (page: InsightPage) => void;
+  /** Show an indexed chunk (by id) in the code drawer, or close the drawer with null. */
   openSource: (chunkId: string | null) => void;
+  /** Show lines of a file in the code drawer. */
+  openFile: (path: string, start: number, end?: number) => void;
   toggleSidebar: () => void;
 }
 
@@ -33,7 +42,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [repoId, setRepoId] = useState<string | null>(readRepo);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [view, setView] = useState<View>("chat");
-  const [sourceId, setSourceId] = useState<string | null>(null);
+  const [insight, setInsight] = useState<InsightPage>("overview");
+  const [source, setSource] = useState<SourceTarget | null>(null);
   const [sidebarCollapsed, setCollapsed] = useState(
     () => matchMedia("(max-width: 1023px)").matches,
   );
@@ -49,7 +59,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const selectRepo = useCallback((id: string | null) => {
     setRepoId(id);
     setConversationId(null);
-    setSourceId(null);
+    setSource(null);
     setView("chat");
     try {
       if (id) localStorage.setItem(REPO_KEY, id);
@@ -61,9 +71,27 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const selectConversation = useCallback((id: string | null) => {
     setConversationId(id);
-    setSourceId(null);
+    setSource(null);
     setView("chat");
   }, []);
+
+  const openInsight = useCallback((page: InsightPage) => {
+    setInsight(page);
+    setSource(null);
+    setView("insights");
+  }, []);
+
+  const openSource = useCallback(
+    (chunkId: string | null) => setSource(chunkId ? { kind: "chunk", id: chunkId } : null),
+    [],
+  );
+
+  const openFile = useCallback(
+    (path: string, start: number, end?: number) => {
+      if (repoId) setSource({ kind: "file", repoId, path, start, end: end ?? start });
+    },
+    [repoId],
+  );
 
   return (
     <Ctx.Provider
@@ -71,12 +99,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         repoId,
         conversationId,
         view,
-        sourceId,
+        insight,
+        source,
         sidebarCollapsed,
         selectRepo,
         selectConversation,
         setView,
-        openSource: setSourceId,
+        openInsight,
+        openSource,
+        openFile,
         toggleSidebar: () => setCollapsed((c) => !c),
       }}
     >

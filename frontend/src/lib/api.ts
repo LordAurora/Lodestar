@@ -99,13 +99,16 @@ export interface Settings {
 }
 
 export interface IndexProgress {
-  status: "pending" | "scanning" | "embedding" | "done" | "error";
+  status: "pending" | "scanning" | "embedding" | "analyzing" | "done" | "error";
   files_total: number;
   files_scanned: number;
   files_changed: number;
   files_deleted: number;
   chunks_created: number;
   chunks_embedded: number;
+  analysis_total: number;
+  analysis_done: number;
+  analysis_error: string | null;
   elapsed: number;
   error: string | null;
   recent_files: string[];
@@ -113,12 +116,108 @@ export interface IndexProgress {
 }
 
 export interface ChunkPreview {
-  chunk: Source & { content: string };
+  // Chunk previews carry every field of a Source; file previews only the location.
+  chunk: Pick<Source, "file_path" | "start_line" | "end_line"> &
+    Partial<Omit<Source, "file_path" | "start_line" | "end_line">>;
   language: string;
   first_line: number;
   lines: string[];
   stale: boolean;
   absolute_path: string;
+}
+
+// ---- Insights ---------------------------------------------------------------
+
+export type Confidence = "high" | "medium" | "low";
+
+export interface InsightsStatus {
+  analyzed: boolean;
+  last_analyzed_at: number | null;
+  analyzers: Record<string, number>;
+  counts: {
+    symbols: number;
+    tests: number;
+    undocumented: number;
+    env_vars: number;
+    debt_items: number;
+    call_edges: number;
+    imports: number;
+    [key: string]: number;
+  };
+}
+
+export interface EnvUsage {
+  file_path: string;
+  line: number;
+  language: string;
+  required: boolean;
+  has_default: boolean;
+  default: string | null;
+  source: "code" | "pydantic";
+  symbol: string | null;
+}
+
+export interface EnvVariable {
+  name: string;
+  is_secret: boolean;
+  required: boolean;
+  default: string | null;
+  default_varies: boolean;
+  usage_count: number;
+  declared_in: string[];
+  usages: EnvUsage[];
+}
+
+export interface DebtItem {
+  id: number;
+  tag: string;
+  text: string;
+  file_path: string;
+  line: number;
+  symbol: string | null;
+  author: string | null;
+  assignee: string | null;
+  commit_date: number | null;
+  age_days: number | null;
+}
+
+export interface DebtGroup {
+  key: string;
+  label: string;
+  items: DebtItem[];
+}
+
+export type DebtGroupBy = "tag" | "folder" | "topic" | "age";
+
+export interface DebtFilters {
+  tag?: string;
+  q?: string;
+  folder?: string;
+  older_than_days?: number;
+  group_by?: DebtGroupBy;
+}
+
+export interface DebtBoard {
+  group_by: DebtGroupBy;
+  groups: DebtGroup[];
+  shown: number;
+  topics_pending: boolean;
+  topics_error: string | null;
+  counters: {
+    total: number;
+    by_tag: Record<string, number>;
+    oldest: DebtItem | null;
+    has_dates: boolean;
+  };
+}
+
+function query(params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "" && value !== 0) search.set(key, String(value));
+  }
+  const text = search.toString();
+  return text ? `?${text}` : "";
 }
 
 export class ApiError extends Error {
@@ -177,7 +276,32 @@ export const api = {
     request<void>(`/repos/${repoId}/conversations/${convId}`, { method: "DELETE" }),
 
   chunk: (chunkId: string) => request<ChunkPreview>(`/chunks/${chunkId}`),
+  file: (repoId: string, path: string, start: number, end: number) =>
+    request<ChunkPreview>(`/repos/${repoId}/file${query({ path, start, end })}`),
+
+  insightsStatus: (repoId: string) => request<InsightsStatus>(`/repos/${repoId}/insights/status`),
+  analyze: (repoId: string) =>
+    request<{ job_id: string }>(`/repos/${repoId}/analyze`, { method: "POST" }),
+  env: (repoId: string, q = "") =>
+    request<{ variables: EnvVariable[]; total: number }>(`/repos/${repoId}/env${query({ q })}`),
+  envExample: (repoId: string) =>
+    request<{ text: string; count: number }>(`/repos/${repoId}/env/example`),
+  debt: (repoId: string, filters: DebtFilters) =>
+    request<DebtBoard>(`/repos/${repoId}/debt${query({ ...filters })}`),
+  refreshDebtTopics: (repoId: string) =>
+    request<{ status: string }>(`/repos/${repoId}/debt/topics/refresh`, { method: "POST" }),
 };
+
+/** A URL that downloads the tech debt list in the given format. */
+export function debtExportUrl(
+  repoId: string,
+  format: "markdown" | "csv",
+  filters: DebtFilters = {},
+): string {
+  const { group_by: _ignored, ...rest } = filters;
+  void _ignored;
+  return `/api/repos/${repoId}/debt/export${query({ format, ...rest })}`;
+}
 
 /** Follow indexing progress with the browser's EventSource (GET SSE). */
 export function watchIndex(

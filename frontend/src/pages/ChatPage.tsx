@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, Database, KeyRound, Network, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Composer, type ComposerHandle } from "@/components/Composer";
+import { RepoOverviewCard } from "@/components/insights/RepoOverviewCard";
 import { Logo } from "@/components/Logo";
 import { AssistantMessage, UserMessage, type DisplayMessage } from "@/components/MessageView";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -238,6 +239,7 @@ export function ChatPage({ repo }: { repo: Repo }) {
                   );
                 })}
               </div>
+              <RepoOverviewCard repo={repo} className="mt-6 w-full text-left" />
             </div>
           )}
 

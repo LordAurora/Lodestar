@@ -34,6 +34,7 @@ import { toast } from "@/components/ui/toaster";
 import { Tooltip } from "@/components/ui/tooltip";
 import { api, type Conversation, type Repo } from "@/lib/api";
 import { useAppState } from "@/lib/app-state";
+import { INSIGHT_NAV } from "@/lib/insights-nav";
 import { keys, useConversations, useHealth, useRepos } from "@/lib/queries";
 import { strings } from "@/lib/strings";
 import { cn } from "@/lib/utils";
@@ -340,6 +341,8 @@ export function Sidebar() {
     selectConversation,
     view,
     setView,
+    insight,
+    openInsight,
     sidebarCollapsed: collapsed,
     toggleSidebar,
   } = useAppState();
@@ -422,6 +425,26 @@ export function Sidebar() {
           onClick={() => setView("settings")}
         />
       </nav>
+
+      {/* Insights: static analysis of the repository */}
+      {repoId && (
+        <nav
+          aria-label={strings.insights.title}
+          className={cn("mt-5 flex flex-col gap-0.5", collapsed ? "items-center" : "px-3")}
+        >
+          {!collapsed && <SectionLabel>{strings.insights.title}</SectionLabel>}
+          {INSIGHT_NAV.map((item) => (
+            <NavItem
+              key={item.id}
+              icon={item.icon}
+              label={item.label}
+              collapsed={collapsed}
+              active={view === "insights" && insight === item.id}
+              onClick={() => openInsight(item.id)}
+            />
+          ))}
+        </nav>
+      )}
 
       {/* Conversations */}
       <div className="mt-5 min-h-0 w-full flex-1 overflow-y-auto px-3">
