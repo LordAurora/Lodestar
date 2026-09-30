@@ -24,6 +24,8 @@ const n = strings.insights.nav;
 
 export const INSIGHT_NAV: InsightNavItem[] = [
   { id: "overview", label: n.overview, icon: LayoutDashboard },
+  { id: "impact", label: n.impact, icon: Radar },
+  { id: "endpoints", label: n.endpoints, icon: Route },
   { id: "config", label: n.config, icon: KeyRound },
   { id: "debt", label: n.debt, icon: ListChecks },
 ];

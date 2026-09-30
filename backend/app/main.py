@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import BACKEND_DIR, get_config
 from app.privacy import guard
-from app.routes import chat, debt, endpoints, insights, repos, system
+from app.routes import chat, debt, endpoints, impact, insights, repos, system
 from app.state import AppState
 
 log = logging.getLogger("lodestar")
@@ -62,6 +62,7 @@ def create_app(state: AppState | None = None, warm_up: bool = True) -> FastAPI:
     app.include_router(insights.router)
     app.include_router(debt.router)
     app.include_router(endpoints.router)
+    app.include_router(impact.router)
 
     if FRONTEND_DIST.is_dir():
         app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
