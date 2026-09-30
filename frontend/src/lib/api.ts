@@ -60,7 +60,13 @@ export interface Message {
 export interface Health {
   status: string;
   foundry: { running: boolean; endpoint: string | null; error: string | null; gpu: boolean };
-  chat_model: { alias: string; ready: boolean; device: "GPU" | "CPU" | null };
+  chat_model: { alias: string; ready: boolean; device: "GPU" | "CPU" | "Remote" | null };
+  llm: {
+    provider: "foundry" | "openai";
+    remote: boolean;
+    host: string | null;
+    base_url: string | null;
+  };
   embedder: { name: string | null; loaded: boolean; error: string | null };
   privacy: {
     guard_enabled: boolean;
@@ -481,7 +487,8 @@ const json = (body: unknown) => JSON.stringify(body);
 
 export const api = {
   health: () => request<Health>("/health"),
-  models: () => request<{ selected: string; models: ModelInfo[] }>("/models"),
+  models: () => request<{ selected: string; models: ModelInfo[]; remote?: boolean }>("/models"),
+  llmCheck: () => request<{ ok: boolean; remote: boolean; error: string | null }>("/llm/check"),
   loadModel: (alias: string) =>
     request<ModelJob>(`/models/${encodeURIComponent(alias)}/load`, { method: "POST" }),
   settings: () => request<Settings>("/settings"),

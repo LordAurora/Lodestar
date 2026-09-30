@@ -190,6 +190,22 @@ export const strings = {
     localOnly: "Local only",
     localOnlyOn: "No external network connections",
     localOnlyOff: "External connection attempts detected",
+    remote: {
+      badge: "Remote model",
+      badgeHint: (host: string) =>
+        `Questions and the code snippets retrieved for them are sent to ${host}. Your index stays here.`,
+      title: "Remote chat model",
+      help: "The chat model runs on an OpenAI-compatible endpoint set with LODESTAR_LLM_* variables. Embeddings and the index stay on this machine.",
+      host: "Endpoint",
+      model: "Model",
+      test: "Test connection",
+      testing: "Testing…",
+      reachable: "The endpoint answered.",
+      unreachable: "Could not reach the endpoint.",
+      privacyOn: (host: string) => `Chat is sent to ${host}`,
+      privacyBody:
+        "Your index and embeddings stay on this machine. Each question is sent to the remote model together with the code snippets retrieved for it, so use an endpoint you trust with that code. Every other outbound connection is still blocked.",
+    },
     privacyBody:
       "Your code, questions and embeddings never leave this machine. The backend blocks every outbound connection that is not to localhost, and the UI loads no fonts, icons or scripts from the internet.",
     endpoint: "Foundry Local endpoint",

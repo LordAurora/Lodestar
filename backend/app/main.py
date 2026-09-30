@@ -60,6 +60,7 @@ def create_app(state: AppState | None = None, warm_up: bool = True) -> FastAPI:
     async def lifespan(app: FastAPI):
         if config.block_external_network:
             guard.install(block=True)
+            guard.allow(config.guard_allowed_hosts)
         if warm_up:
             asyncio.get_running_loop().run_in_executor(None, _warm_up, app.state.lodestar)
         yield
