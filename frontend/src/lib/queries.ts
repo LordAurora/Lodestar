@@ -1,7 +1,7 @@
 // TanStack Query hooks: one place that knows how server data is fetched and cached.
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api, watchIndex, type DebtFilters, type IndexProgress } from "./api";
+import { api, watchIndex, type DebtFilters, type EndpointFilters, type IndexProgress } from "./api";
 
 /** What the code drawer is showing: an indexed chunk, or a line range of a file. */
 export type SourceTarget =
@@ -22,6 +22,8 @@ export const keys = {
   env: (repoId: string, q: string) => ["insights", repoId, "env", q] as const,
   envExample: (repoId: string) => ["insights", repoId, "env-example"] as const,
   debt: (repoId: string, filters: DebtFilters) => ["insights", repoId, "debt", filters] as const,
+  endpoints: (repoId: string, filters: EndpointFilters) =>
+    ["insights", repoId, "endpoints", filters] as const,
 };
 
 export const useHealth = () =>
@@ -74,6 +76,27 @@ export const useEnv = (repoId: string, q: string) =>
 
 export const useEnvExample = (repoId: string) =>
   useQuery({ queryKey: keys.envExample(repoId), queryFn: () => api.envExample(repoId) });
+
+export const useSymbols = (repoId: string, q: string) =>
+  useQuery({
+    queryKey: ["insights", repoId, "symbols", q] as const,
+    queryFn: () => api.symbols(repoId, q),
+    placeholderData: (previous) => previous,
+  });
+
+export const useImpact = (repoId: string, symbolId: number | null, depth: number) =>
+  useQuery({
+    queryKey: ["insights", repoId, "impact", symbolId, depth] as const,
+    queryFn: () => api.impact(repoId, symbolId!, depth),
+    enabled: symbolId !== null,
+  });
+
+export const useEndpoints = (repoId: string, filters: EndpointFilters) =>
+  useQuery({
+    queryKey: keys.endpoints(repoId, filters),
+    queryFn: () => api.endpoints(repoId, filters),
+    placeholderData: (previous) => previous,
+  });
 
 /** The tech debt board. While topics are being computed it polls until they are ready. */
 export const useDebt = (repoId: string, filters: DebtFilters) =>

@@ -33,6 +33,8 @@ class Node:
     end_line: int
     is_test: bool
     has_doc: bool = False
+    owner: str | None = None  # qualified name of the enclosing class
+    language: str = ""
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,7 @@ class CodeGraph:
             r["id"]: Node(
                 r["id"], r["name"], r["qualified_name"], r["kind"], r["file_path"],
                 r["start_line"], r["end_line"], bool(r["is_test"]), bool(r["has_doc"]),
+                r["owner"], r["language"],
             )
             for r in conn.execute("SELECT * FROM symbols")
         }  # fmt: skip
@@ -77,18 +80,26 @@ class CodeGraph:
             self._incoming[dst].append((src, r["line"], r["file_path"], r["confidence"]))
             self._outgoing[src].append((dst, r["line"], r["file_path"], r["confidence"]))
 
-    def callers(self, symbol_id: int, depth: int = 3, max_nodes: int = MAX_NODES) -> Traversal:
-        """Who calls (or inherits from) this symbol, directly and transitively."""
+    def callers(
+        self, symbol_id: int | list[int], depth: int = 3, max_nodes: int = MAX_NODES
+    ) -> Traversal:
+        """Who calls (or inherits from) this symbol, directly and transitively.
+
+        Pass several ids to start from all of them at once (a class and its methods).
+        """
         return self._walk(symbol_id, self._incoming, depth, max_nodes)
 
-    def callees(self, symbol_id: int, depth: int = 3, max_nodes: int = MAX_NODES) -> Traversal:
+    def callees(
+        self, symbol_id: int | list[int], depth: int = 3, max_nodes: int = MAX_NODES
+    ) -> Traversal:
         """What this symbol calls, directly and transitively."""
         return self._walk(symbol_id, self._outgoing, depth, max_nodes)
 
-    def _walk(self, start: int, edges, depth: int, max_nodes: int) -> Traversal:
-        visited = {start}
+    def _walk(self, start: int | list[int], edges, depth: int, max_nodes: int) -> Traversal:
+        starts = [start] if isinstance(start, int) else list(start)
+        visited = set(starts)
         hits: list[Hit] = []
-        queue: deque[tuple[int, int, str]] = deque([(start, 0, "high")])
+        queue: deque[tuple[int, int, str]] = deque((s, 0, "high") for s in starts)
         truncated = False
         while queue:
             current, level, path_confidence = queue.popleft()

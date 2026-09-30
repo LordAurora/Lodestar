@@ -187,6 +187,86 @@ export interface DebtGroup {
   items: DebtItem[];
 }
 
+export interface SymbolHit {
+  id: number;
+  name: string;
+  qualified_name: string;
+  kind: "function" | "method" | "class";
+  file_path: string;
+  line: number;
+  is_test: boolean;
+  callers: number;
+}
+
+export interface ImpactItem {
+  id: number;
+  name: string;
+  qualified_name: string;
+  kind: "function" | "method" | "class";
+  file_path: string;
+  line: number;
+  call_file: string;
+  call_line: number;
+  confidence: Confidence;
+  is_test: boolean;
+  depth: number;
+}
+
+export interface ImpactReport {
+  target: {
+    id: number;
+    name: string;
+    qualified_name: string;
+    kind: string;
+    file_path: string;
+    line: number;
+    end_line: number;
+  };
+  depth: number;
+  levels: { depth: number; items: ImpactItem[] }[];
+  tests: ImpactItem[];
+  module_level: { file_path: string; line: number; confidence: Confidence }[];
+  total: number;
+  direct: number;
+  files: number;
+  production_files: number;
+  score: number;
+  level: "Low" | "Medium" | "High";
+  formula: string;
+  low_confidence: number;
+  possible_unresolved: number;
+  unresolved_warning: boolean;
+  truncated: boolean;
+}
+
+export interface Endpoint {
+  id: number;
+  method: string;
+  path: string;
+  handler: string | null;
+  handler_symbol_id: number | null;
+  symbol: string | null;
+  file_path: string;
+  line: number;
+  framework: string;
+  framework_label: string;
+  partial: boolean;
+}
+
+export interface EndpointList {
+  endpoints: Endpoint[];
+  total: number;
+  shown: number;
+  methods: { method: string; count: number }[];
+  frameworks: { framework: string; label: string; count: number }[];
+}
+
+export interface EndpointFilters {
+  method?: string;
+  framework?: string;
+  q?: string;
+}
+
 export type DebtGroupBy = "tag" | "folder" | "topic" | "age";
 
 export interface DebtFilters {
@@ -286,11 +366,26 @@ export const api = {
     request<{ variables: EnvVariable[]; total: number }>(`/repos/${repoId}/env${query({ q })}`),
   envExample: (repoId: string) =>
     request<{ text: string; count: number }>(`/repos/${repoId}/env/example`),
+  symbols: (repoId: string, q: string, kind = "") =>
+    request<{ symbols: SymbolHit[] }>(`/repos/${repoId}/symbols${query({ q, kind, limit: 12 })}`),
+  impact: (repoId: string, symbolId: number, depth: number) =>
+    request<ImpactReport>(`/repos/${repoId}/impact/${symbolId}${query({ depth })}`),
+  endpoints: (repoId: string, filters: EndpointFilters) =>
+    request<EndpointList>(`/repos/${repoId}/endpoints${query({ ...filters })}`),
   debt: (repoId: string, filters: DebtFilters) =>
     request<DebtBoard>(`/repos/${repoId}/debt${query({ ...filters })}`),
   refreshDebtTopics: (repoId: string) =>
     request<{ status: string }>(`/repos/${repoId}/debt/topics/refresh`, { method: "POST" }),
 };
+
+/** A URL that downloads the endpoint catalog (respecting the current filters). */
+export function endpointsExportUrl(
+  repoId: string,
+  format: "json" | "csv" | "markdown",
+  filters: EndpointFilters = {},
+): string {
+  return `/api/repos/${repoId}/endpoints/export${query({ format, ...filters })}`;
+}
 
 /** A URL that downloads the tech debt list in the given format. */
 export function debtExportUrl(
@@ -330,22 +425,22 @@ export type ChatEvent =
   | { event: "error"; data: { message: string } };
 
 /**
- * POST a question and read the Server-Sent Events stream it returns.
+ * POST and read the Server-Sent Events stream that comes back.
  * EventSource only supports GET, so we parse the stream by hand: events are
  * separated by a blank line, and each has `event:` and `data:` fields.
  */
-export async function streamChat(
-  repoId: string,
-  body: { question: string; conversation_id?: string | null; regenerate?: boolean },
-  onEvent: (e: ChatEvent) => void,
+async function postEventStream<E>(
+  path: string,
+  body: unknown,
+  onEvent: (e: E) => void,
   signal?: AbortSignal,
 ): Promise<void> {
   let res: Response;
   try {
-    res = await fetch(`/api/repos/${repoId}/chat`, {
+    res = await fetch(`/api${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-      body: json(body),
+      body: body === undefined ? undefined : json(body),
       signal,
     });
   } catch (err) {
@@ -374,10 +469,37 @@ export async function streamChat(
           if (line.startsWith("event:")) event = line.slice(6).trim();
           else if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
         }
-        if (data.length) onEvent({ event, data: JSON.parse(data.join("\n")) } as ChatEvent);
+        if (data.length) onEvent({ event, data: JSON.parse(data.join("\n")) } as E);
       }
     }
   } catch (err) {
     if ((err as Error).name !== "AbortError") throw err;
   }
 }
+
+/** Ask a question about a repository; the answer streams back as chat events. */
+export const streamChat = (
+  repoId: string,
+  body: { question: string; conversation_id?: string | null; regenerate?: boolean },
+  onEvent: (e: ChatEvent) => void,
+  signal?: AbortSignal,
+) => postEventStream<ChatEvent>(`/repos/${repoId}/chat`, body, onEvent, signal);
+
+export type SummaryEvent =
+  | { event: "token"; data: { text: string } }
+  | { event: "done"; data: { text: string; fallback: boolean; reason: string | null } };
+
+/** Stream the plain-language risk summary of an impact report. */
+export const streamImpactSummary = (
+  repoId: string,
+  symbolId: number,
+  depth: number,
+  onEvent: (e: SummaryEvent) => void,
+  signal?: AbortSignal,
+) =>
+  postEventStream<SummaryEvent>(
+    `/repos/${repoId}/impact/${symbolId}/summary${query({ depth })}`,
+    undefined,
+    onEvent,
+    signal,
+  );
