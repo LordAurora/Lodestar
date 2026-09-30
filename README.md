@@ -28,6 +28,7 @@ Lodestar is the companion project for the tutorial *Building Your First Local RA
 - **Grounded answers:** inline `[n]` citations link to the exact lines. Below a relevance threshold, Lodestar says it found nothing instead of guessing, and the model is never called.
 - **Streaming chat:** Server-Sent Events, multi-turn conversations with follow-up rewriting, persisted per repository.
 - **Private by design:** Foundry Local on `127.0.0.1`, a socket-level guard that blocks non-local connections, and fonts, icons and syntax highlighting bundled with the app.
+- **Insights:** static analysis of the whole repository: impact analysis, architecture diagrams, an API endpoint catalog, environment variables, tech debt, duplicate code and docstring suggestions. See [Insights](#insights).
 - **Clean SaaS UI:** React, Tailwind and shadcn/ui-style components, Lucide icons, and a monochrome light, dark and system theme.
 
 ## Quick start
@@ -141,6 +142,51 @@ python scripts/eval.py --embedder fastembed:BAAI/bge-small-en-v1.5 --k 3
 
 The bundled 12-question set is intentionally small (it is a tutorial demo), so every retriever reaches hit@3 = 1.00 and MRR is the more telling number. For a real project, write a YAML file in the same format as `examples/bookshelf.eval.yaml` and pass `--dataset` and `--repo`.
 
+## Insights
+
+Beyond chat, Lodestar analyses the code it indexes. The **Insights** section of the sidebar has one page per feature. Everything runs locally, and everything except the docstring suggester is read-only.
+
+| Page | What it does |
+|---|---|
+| **Overview** | Counters for symbols, endpoints, environment variables, undocumented functions, duplicates and tech debt. |
+| **Impact** | Pick a function and see who calls it (directly and through other functions), which tests reach it, and a Low / Medium / High blast radius with a short summary. |
+| **Diagrams** | Mermaid diagrams of the module graph, the call graph around a symbol, and class hierarchies. Generated locally, never sent to a diagram service. |
+| **API Endpoints** | Routes found in Flask, FastAPI, Express, Fastify, NestJS, Koa, Spring, ASP.NET, Gin, Echo, chi and net/http, with prefixes resolved across files. Exports to Markdown. |
+| **Config** | Every environment variable the code reads, where, its default, and whether it looks like a secret. Generates a `.env.example`. |
+| **Docstrings** | Draft doc comments for undocumented functions, reviewed one by one before anything is written. |
+| **Duplicates** | Groups of functions that repeat each other, ranked by how much there is to gain, with a side-by-side comparison. |
+| **Tech debt** | `TODO`, `FIXME`, `HACK` and similar comments with git blame ages, grouped by tag, folder, age or topic. |
+
+Open a repository and press **Analyze** (or **Re-analyze**) on any Insights page. The first index run also analyses. Repositories indexed before Insights existed keep working: their database is migrated on first use, and **Re-analyze** fills in the new data without re-embedding anything. Analysis is incremental, keyed by each file's hash, so only changed files are redone.
+
+### How accurate is it?
+
+These pages are **heuristic**. Lodestar resolves names by static analysis without running or type-checking your code, so it can be wrong in both directions:
+
+- Calls through dynamic dispatch, reflection, decorators or dependency injection may be missed, and a common method name may be linked to the wrong definition.
+- Every result that depends on name resolution carries a **confidence** (high, medium or low), shown in the UI. A path is only as confident as its weakest link.
+- Endpoint detection covers the usual patterns of each framework. Routes assembled at runtime appear as partial paths and are marked as such.
+- Duplicates compare structure and embedding similarity. A high score means "worth a look", not "safe to merge".
+- The small local model only writes short summaries and labels. Every page works without it and falls back to plain text when its answer is unusable.
+
+Treat the output as a map, not as proof.
+
+### Docstring suggestions and your files
+
+The docstring suggester is the only feature that writes to your repository, so it is deliberately careful:
+
+1. **Dry run first.** Generating only stores proposals. Nothing is written until you press Accept.
+2. **The file must be unchanged.** It is hashed again on accept, and refused if it differs from what was analysed.
+3. **Only comments are inserted.** The position is computed with tree-sitter, and existing code is never modified.
+4. **Verified before writing.** The result is parsed again. If it has a syntax error, or anything outside the inserted text differs by a single byte, nothing is written.
+5. **Backup first.** The original goes to `.lodestar-backup/<timestamp>/<path>` in your repository (add it to `.gitignore` if you do not want to commit it). Lodestar never indexes that folder.
+6. **Formatting is kept.** Line endings and indentation of the surrounding code are reused.
+7. **Re-indexed afterwards.** Only the changed files are indexed again.
+
+The model answers in a fixed `SUMMARY / PARAM / RETURNS` format, which Lodestar validates (no code fences, parameters must exist in the signature, length limits) and renders into the right syntax per language: Google, NumPy or reST docstrings for Python, JSDoc for JavaScript and TypeScript, Javadoc, Go comments and C# XML docs. A bad answer is retried once and then reported as failed instead of being guessed.
+
+Environment files are treated with the same care: Lodestar reads variable **names** from `.env` files but never their values, and never indexes them.
+
 ## Configuration
 
 Copy `.env.example` to `.env`. Every setting is an environment variable with the `LODESTAR_` prefix.
@@ -152,6 +198,11 @@ Copy `.env.example` to `.env`. Every setting is an environment variable with the
 | `LODESTAR_EMBEDDING_BATCH_SIZE` | `32` | Chunks per embedding call. |
 | `LODESTAR_BLOCK_EXTERNAL_NETWORK` | `true` | Block non-loopback sockets in the backend. |
 | `LODESTAR_DEVICE` | `auto` | `auto` uses the GPU when its execution provider is installed, `gpu` insists on it, `cpu` never uses it. |
+| `LODESTAR_DEBT_TAGS` | `TODO,FIXME,HACK,XXX,BUG,NOTE` | Comment tags collected by the tech debt board. |
+| `LODESTAR_DEBT_TOPIC_THRESHOLD` | `0.6` | How similar two debt comments must be to share a topic. |
+| `LODESTAR_DUPLICATE_MIN_SIMILARITY` | `0.90` | Default similarity for the duplicate finder (the page slider goes down to 0.80). |
+| `LODESTAR_DUPLICATE_MIN_LINES` | `5` | Smallest function the duplicate finder considers. |
+| `LODESTAR_DOCSTRING_STYLE` | `google` | Python docstring style: `google`, `numpy` or `rest`. |
 | `LODESTAR_OFFLINE` | `true` | Stop fastembed from contacting Hugging Face. |
 | `LODESTAR_MAX_FILE_BYTES` | `1000000` | Larger files are skipped. |
 | `LODESTAR_DATA_DIR` | `backend/data` | SQLite files, `settings.json`, fastembed cache. |
@@ -202,6 +253,18 @@ The Foundry embedding endpoint does not get faster with larger batches or parall
 | GET | `/api/repos/{id}/conversations` | Conversations (plus `PATCH`/`DELETE` on `/conversations/{cid}` and `GET …/{cid}/messages`) |
 | POST | `/api/repos/{id}/chat` | SSE: `retrieval`, `token`…, `done` — or `retrieval`, `no_answer` |
 | GET | `/api/chunks/{chunk_id}` | A chunk and its surrounding lines, for the source drawer |
+| POST | `/api/repos/{id}/analyze` | Run (or force) the Insights analysis |
+| GET | `/api/repos/{id}/insights/status` | When it was analysed and the overview counters |
+| GET | `/api/repos/{id}/env`, `/env/example` | Environment variables and a generated `.env.example` |
+| GET | `/api/repos/{id}/debt`, `/debt/export` | Tech debt board and its Markdown/CSV export |
+| GET | `/api/repos/{id}/endpoints` | API endpoint catalog (`/endpoints/export` for Markdown) |
+| GET | `/api/repos/{id}/impact/{symbol_id}` | Callers, tests and blast radius (`POST …/summary` streams a short summary) |
+| GET | `/api/repos/{id}/diagram` | Mermaid source for module, call and class diagrams |
+| GET | `/api/repos/{id}/duplicates`, `/duplicates/{gid}/diff` | Duplicate groups and a side-by-side comparison |
+| GET | `/api/repos/{id}/docs/missing` | Undocumented functions |
+| POST | `/api/repos/{id}/docs/suggest` | Generate docstring suggestions in the background (writes nothing) |
+| GET | `/api/repos/{id}/docs/suggestions`, `…/{sid}/diff` | The review queue and the unified diff of one suggestion |
+| POST | `/api/repos/{id}/docs/suggestions/{sid}/accept`, `/docs/accept` | Write accepted docstrings (backup first) |
 
 ## Project layout
 
@@ -218,7 +281,8 @@ backend/app/
   prompts.py        system prompt, one-shot citation example, query rewrite
   rag.py            retrieve -> threshold -> generate -> cite
   privacy.py        audit hook that blocks non-localhost connections
-  routes/           system, repos, chat
+  analysis/         Insights: symbols, call graph, env, debt, endpoints, duplicates, docstrings
+  routes/           system, repos, chat, insights, debt, endpoints, impact, diagrams, duplicates, docs
 backend/tests/      pytest suite with fake embedder and fake LLM
 frontend/src/       React + TypeScript + Tailwind + shadcn/ui-style components
   lib/strings.ts    every UI string, ready for translation
