@@ -9,6 +9,9 @@ server to install:
   and the chat conversations about that repository.
 
 Deleting a repository is therefore as simple as deleting one file.
+
+Each repo database is versioned with SQLite's ``PRAGMA user_version`` and upgraded
+by ``migrate`` when it is opened, so indexes made by an older Lodestar keep working.
 """
 
 from __future__ import annotations
@@ -82,6 +85,118 @@ CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id);
 """
 
 
+# Insights (static analysis) tables. The `symbols`, `call_sites` and `import_statements`
+# tables hold what was *extracted* from each file and follow that file's lifecycle
+# (re-created when its hash changes, removed when it is deleted). `symbol_references`
+# and `imports` are *derived* from them by resolving names across files, and are
+# rebuilt after every analysis run. (The table is not called `references` because that
+# is an SQL keyword.)
+ANALYSIS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS symbols (
+    id             INTEGER PRIMARY KEY,
+    repo_id        TEXT NOT NULL,
+    file_path      TEXT NOT NULL,
+    language       TEXT NOT NULL,
+    name           TEXT NOT NULL,
+    qualified_name TEXT NOT NULL,
+    kind           TEXT NOT NULL,          -- function | method | class
+    owner          TEXT,                   -- qualified name of the enclosing class
+    start_line     INTEGER NOT NULL,
+    end_line       INTEGER NOT NULL,
+    is_test        INTEGER NOT NULL DEFAULT 0,
+    has_doc        INTEGER NOT NULL DEFAULT 0,
+    signature      TEXT,
+    file_hash      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_symbols_file ON symbols(file_path);
+CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name);
+
+CREATE TABLE IF NOT EXISTS call_sites (
+    id             INTEGER PRIMARY KEY,
+    repo_id        TEXT NOT NULL,
+    file_path      TEXT NOT NULL,
+    from_symbol_id INTEGER,                -- NULL for module-level code
+    to_name        TEXT NOT NULL,
+    receiver       TEXT,                   -- `obj` in obj.method()
+    kind           TEXT NOT NULL,          -- call | inherit
+    line           INTEGER NOT NULL,
+    file_hash      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_call_sites_file ON call_sites(file_path);
+
+CREATE TABLE IF NOT EXISTS import_statements (
+    id         INTEGER PRIMARY KEY,
+    repo_id    TEXT NOT NULL,
+    file_path  TEXT NOT NULL,
+    module     TEXT NOT NULL,
+    names_json TEXT,
+    alias      TEXT,
+    line       INTEGER NOT NULL,
+    file_hash  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_import_statements_file ON import_statements(file_path);
+
+CREATE TABLE IF NOT EXISTS symbol_references (
+    id             INTEGER PRIMARY KEY,
+    repo_id        TEXT NOT NULL,
+    from_symbol_id INTEGER,
+    to_name        TEXT NOT NULL,
+    to_symbol_id   INTEGER,                -- NULL when the name could not be resolved
+    kind           TEXT NOT NULL,          -- call | import | inherit
+    line           INTEGER NOT NULL,
+    file_path      TEXT NOT NULL,
+    confidence     TEXT NOT NULL,          -- high | medium | low
+    file_hash      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_refs_to ON symbol_references(to_symbol_id);
+CREATE INDEX IF NOT EXISTS idx_refs_from ON symbol_references(from_symbol_id);
+
+CREATE TABLE IF NOT EXISTS imports (
+    id                 INTEGER PRIMARY KEY,
+    repo_id            TEXT NOT NULL,
+    file_path          TEXT NOT NULL,
+    module             TEXT NOT NULL,
+    resolved_file_path TEXT,               -- NULL for third-party or unknown modules
+    file_hash          TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_imports_file ON imports(file_path);
+
+-- Which analyzer has processed which version of which file (drives incremental runs).
+CREATE TABLE IF NOT EXISTS analysis_files (
+    path        TEXT NOT NULL,
+    analyzer    TEXT NOT NULL,
+    hash        TEXT NOT NULL,
+    version     INTEGER NOT NULL,
+    analyzed_at REAL NOT NULL,
+    meta        TEXT,                      -- small JSON blob the analyzer may keep
+    PRIMARY KEY (path, analyzer)
+);
+
+CREATE TABLE IF NOT EXISTS analysis_state (
+    analyzer         TEXT PRIMARY KEY,
+    last_analyzed_at REAL NOT NULL
+);
+"""
+
+# (version, SQL). Versions only ever grow, and every script must be safe to run twice.
+MIGRATIONS: list[tuple[int, str]] = [
+    (1, REPO_SCHEMA),
+    (2, ANALYSIS_SCHEMA),
+]
+LATEST_VERSION = MIGRATIONS[-1][0]
+
+
+def migrate(conn: sqlite3.Connection) -> int:
+    """Bring a repo database up to date. Idempotent. Returns the resulting version."""
+    current = conn.execute("PRAGMA user_version").fetchone()[0]
+    for version, script in MIGRATIONS:
+        if version > current:
+            conn.executescript(script)
+            conn.execute(f"PRAGMA user_version = {version}")  # PRAGMA takes no parameters
+            current = version
+    return current
+
+
 def connect(path: Path) -> sqlite3.Connection:
     """Open a SQLite connection with sensible defaults.
 
@@ -132,7 +247,7 @@ class Database:
         conn = connect(self.repo_db_path(repo_id))
         try:
             if repo_id not in self._initialised:
-                conn.executescript(REPO_SCHEMA)
+                migrate(conn)
                 self._initialised.add(repo_id)
             with conn:
                 yield conn
