@@ -94,6 +94,7 @@ async def start_index(repo_id: str, state: AppState = Depends(get_state)) -> dic
             progress,
             batch_size=state.config.embedding_batch_size,
             max_bytes=state.config.max_file_bytes,
+            analyzers=state.analyzers,
         )
         state.invalidate_vectors(repo_id)
 

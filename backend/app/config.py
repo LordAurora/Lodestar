@@ -59,6 +59,11 @@ class Config(BaseSettings):
     # Default Foundry Local chat model alias, used until the user picks one.
     default_chat_model: str = "qwen2.5-coder-1.5b"
 
+    # Comment tags collected by the tech debt board, and how similar two comments must be
+    # (cosine similarity) to be grouped under one topic.
+    debt_tags: str = "TODO,FIXME,HACK,XXX,BUG,NOTE"
+    debt_topic_threshold: float = 0.6
+
     # Indexing limits.
     max_file_bytes: int = 1_000_000
 

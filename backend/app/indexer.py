@@ -155,9 +155,10 @@ def index_repository(
     progress: IndexProgress,
     batch_size: int = 32,
     max_bytes: int = 1_000_000,
+    analyzers: list | None = None,
 ) -> IndexProgress:
     try:
-        _run(db, repo_id, root, embedder, progress, batch_size, max_bytes)
+        _run(db, repo_id, root, embedder, progress, batch_size, max_bytes, analyzers)
         progress.status = "done"
     except Exception as exc:
         progress.status, progress.error = "error", str(exc)
@@ -165,7 +166,7 @@ def index_repository(
     return progress
 
 
-def _run(db, repo_id, root, embedder, progress, batch_size, max_bytes) -> None:
+def _run(db, repo_id, root, embedder, progress, batch_size, max_bytes, analyzers=None) -> None:
     progress.status = "scanning"
     repo = db.get_repo(repo_id)
     if repo is None:
@@ -232,18 +233,23 @@ def _run(db, repo_id, root, embedder, progress, batch_size, max_bytes) -> None:
     #    point, so a failure here is reported but does not fail the whole run.
     progress.status = "analyzing"
     try:
-        run_analysis(db, repo_id, root, default_analyzers(), progress)
+        run_analysis(db, repo_id, root, analyzers or default_analyzers(), progress)
     except Exception as exc:
         progress.analysis_error = str(exc)
 
 
 def analyze_repository(
-    db: Database, repo_id: str, root: Path, progress: IndexProgress, force: bool = True
+    db: Database,
+    repo_id: str,
+    root: Path,
+    progress: IndexProgress,
+    force: bool = True,
+    analyzers: list | None = None,
 ) -> IndexProgress:
     """Run only the Insights analysis ("Re-analyze"). ``force`` redoes every file."""
     try:
         progress.status = "analyzing"
-        run_analysis(db, repo_id, root, default_analyzers(), progress, force=force)
+        run_analysis(db, repo_id, root, analyzers or default_analyzers(), progress, force=force)
         progress.status = "done"
     except Exception as exc:
         progress.status, progress.error = "error", str(exc)

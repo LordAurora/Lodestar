@@ -28,6 +28,14 @@ SECRET_TOKENS = {
     "KEY", "TOKEN", "SECRET", "PASSWORD", "PASSWD", "PWD", "CREDENTIAL", "CREDENTIALS",
     "PRIVATE", "APIKEY", "DSN", "SALT", "PASSPHRASE",
 }  # fmt: skip
+# Words that say a name describes *how* a secret is used (its lifetime, size, ...) rather than
+# being one: `TOKEN_TTL=3600` is a setting, not a token. Over-masking is safe and under-masking
+# is not, so this list is short and only removes the flag when no stronger evidence exists.
+BENIGN_TOKENS = {
+    "TTL", "EXPIRES", "EXPIRY", "EXPIRATION", "TIMEOUT", "DURATION", "LIFETIME", "SECONDS",
+    "MINUTES", "HOURS", "DAYS", "LENGTH", "SIZE", "COUNT", "ENABLED", "ENABLE", "ALGORITHM",
+    "HEADER", "PREFIX", "MAX", "MIN", "LIMIT", "ROUNDS", "ITERATIONS",
+}  # fmt: skip
 CREDENTIAL_URL = re.compile(r"://[^/\s:@]+:[^/\s@]+@")  # scheme://user:password@host
 DOTENV_NAMES = (".env", ".env.example", ".env.sample", ".env.template", ".env.dist", ".env.local")
 NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -49,7 +57,8 @@ _QUOTED = re.compile(r"""^[rbfuRBFU@$]*("{3}|'{3}|"|'|`)(.*)\1$""", re.DOTALL)
 def is_secret_name(name: str) -> bool:
     spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", name)  # camelCase -> camel_Case
     tokens = {t.upper() for t in re.split(r"[^A-Za-z0-9]+", spaced) if t}
-    return bool(tokens & SECRET_TOKENS) or "APIKEY" in name.upper().replace("_", "")
+    looks_secret = bool(tokens & SECRET_TOKENS) or "APIKEY" in name.upper().replace("_", "")
+    return looks_secret and not tokens & BENIGN_TOKENS
 
 
 def is_secret(name: str, default: str | None) -> bool:
@@ -407,7 +416,7 @@ ENV_LANGUAGES = frozenset({"python", "javascript", "typescript", "tsx", "go", "j
 
 class EnvAnalyzer:
     name = "env"
-    version = 1
+    version = 2  # 2: settings about a secret (TOKEN_TTL) are no longer flagged as secrets
     languages = ENV_LANGUAGES
 
     def analyze(self, ctx: FileContext, conn, repo_id: str) -> dict | None:

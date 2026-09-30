@@ -174,6 +174,9 @@ def test_go_java_and_csharp():
         ("STRIPE_APIKEY", True), ("SENTRY_DSN", True), ("PRIVATE_KEY_PATH", True),
         ("PORT", False), ("DEBUG", False), ("MONKEY_COUNT", False), ("KEYBOARD_LAYOUT", False),
         ("DATABASE_URL", False),
+        # settings *about* a secret are not secrets
+        ("TOKEN_TTL", False), ("JWT_EXPIRY_SECONDS", False), ("PASSWORD_MIN_LENGTH", False),
+        ("SECRET_KEY_ALGORITHM", False), ("API_TOKEN", True), ("TOKEN_SECRET", True),
     ],
 )  # fmt: skip
 def test_secret_names(name, secret):
@@ -312,3 +315,24 @@ def test_removing_a_read_updates_the_catalog(db, env_indexed, env_repo, fake_emb
     run_index(db, env_indexed, env_repo, fake_embedder)
     with db.repo(env_indexed["id"]) as conn:
         assert "WORKER_COUNT" not in {v["name"] for v in list_env(conn)}
+
+
+def test_file_preview_stays_inside_the_repo_and_hides_secrets(config, env_repo, fake_embedder):
+    state = AppState(config, foundry=OfflineFoundry(), embedder=fake_embedder, llm=FakeLLM())
+    with TestClient(create_app(state, warm_up=False)) as client:
+        repo = client.post("/api/repos", json={"path": str(env_repo)}).json()
+        url = f"/api/repos/{repo['id']}/file"
+        ok = client.get(
+            url, params={"path": "worker.go", "start": 2, "end": 2, "context": 0}
+        ).json()
+        assert ok["lines"] == ['func f() { _ = os.Getenv("WORKER_COUNT") }']
+        assert ok["first_line"] == 2 and ok["chunk"]["start_line"] == 2 and ok["language"] == "go"
+        wide = client.get(url, params={"path": "backend/app/settings.py", "start": 3}).json()
+        assert wide["first_line"] == 1 and wide["chunk"]["end_line"] == 3  # clamped to the file
+        assert client.get(url, params={"path": "../outside.txt"}).status_code == 404
+        assert client.get(url, params={"path": str(env_repo.parent)}).status_code == 404
+        assert client.get(url, params={"path": "nope.py"}).status_code == 404
+        assert client.get(url, params={"path": ".env"}).status_code == 403
+        assert client.get(url, params={"path": "production.env"}).status_code == 403
+        assert client.get(url, params={"path": "deploy.pem"}).status_code == 403
+        assert client.get("/api/repos/nope/file", params={"path": "a.py"}).status_code == 404

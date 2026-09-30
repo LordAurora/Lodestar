@@ -199,11 +199,46 @@ CREATE INDEX IF NOT EXISTS idx_env_name ON env_vars(name);
 CREATE INDEX IF NOT EXISTS idx_env_file ON env_vars(file_path);
 """
 
+# TODO / FIXME / ... comments, plus the cached topic clusters built from their text.
+DEBT_SCHEMA = """
+CREATE TABLE IF NOT EXISTS debt_items (
+    id          INTEGER PRIMARY KEY,
+    repo_id     TEXT NOT NULL,
+    tag         TEXT NOT NULL,
+    text        TEXT NOT NULL,
+    file_path   TEXT NOT NULL,
+    line        INTEGER NOT NULL,
+    symbol_id   INTEGER,
+    assignee    TEXT,                      -- `alice` in `TODO(alice): ...`
+    author      TEXT,                      -- from `git blame`, when available
+    commit_date REAL,                      -- unix time from `git blame`
+    blamed      INTEGER NOT NULL DEFAULT 0,
+    file_hash   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_debt_file ON debt_items(file_path);
+
+CREATE TABLE IF NOT EXISTS debt_clusters (
+    item_id    INTEGER PRIMARY KEY,
+    cluster_id INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS debt_cluster_labels (
+    cluster_id INTEGER PRIMARY KEY,
+    label      TEXT NOT NULL,
+    size       INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS debt_topic_state (
+    id          INTEGER PRIMARY KEY CHECK (id = 1),
+    signature   TEXT NOT NULL,
+    computed_at REAL NOT NULL
+);
+"""
+
 # (version, SQL). Versions only ever grow, and every script must be safe to run twice.
 MIGRATIONS: list[tuple[int, str]] = [
     (1, REPO_SCHEMA),
     (2, ANALYSIS_SCHEMA),
     (3, ENV_SCHEMA),
+    (4, DEBT_SCHEMA),
 ]
 LATEST_VERSION = MIGRATIONS[-1][0]
 
